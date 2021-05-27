@@ -90,6 +90,8 @@ Now that our data/ directory is made, let's move our input data into that folder
 # because I set my working directory to 2021Sb_ALY6010, I'm making paths relative to that starting spot
 file.copy(from = "resources/sampled_dailyCheckouts.csv",
           to = "data/")
+file.copy(from = "resources/LungCapDataCSV.csv",
+          to = "data/")
 ```
 
 

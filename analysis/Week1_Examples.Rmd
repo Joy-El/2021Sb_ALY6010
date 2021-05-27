@@ -1,0 +1,229 @@
+---
+title: "Week1 Examples"
+author: "Joy-El Talbot"
+date: "5/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# R-markdown/Knitr alternative to setwd()
+# MUST be run in this first chunk called "setup"
+knitr::opts_knit$set(root.dir = "C:/Users/joyel/Documents/Roux/ALY6010/2021Sb_ALY6010/") # TODO change to your project directory
+
+# suppress scientific notation
+options(scipen = 99)
+
+# suppress loading strings as factors
+options(stringsAsFactors = FALSE)
+```
+
+## Purpose
+Show how we can calculate statistical distributions and solve Bluman problems in R.
+
+*Adapted from D. Koloski's ALY6010.23545-DKExamples-Week1.R*
+
+*Includes problems from Bluman's Elementary Statistics: a step-by-step approach, 10th edition*
+
+
+```{r libraries}
+library(ggplot2)
+```
+
+```{r constants}
+DATADIR <- "data/"
+INPUTDATA <- paste0(DATADIR, "LungCapDAtaCSV.csv")
+```
+
+```{r loadData}
+lungCap <- read.csv(INPUTDATA)
+```
+
+### R commands for standard normal distribution
+
+#### Graphing Normal Distribution in R
+```{r drawImage}
+# hat-tip to J.R. for their answer on Stackoverflow: https://stackoverflow.com/questions/27898931/how-to-shade-a-graph-using-curve-in-r
+colorArea <- function(from, to, density, ..., col="blue", dens=NULL){
+    y_seq <- seq(from, to, length.out=500)
+    d <- c(0, density(y_seq, ...), 0)
+    polygon(c(from, y_seq, to), d, col=col, density=dens)
+}
+
+curve(dnorm(x), from=-4, to=4, 
+  main = "The Standard Normal Distibution", 
+  ylab = "Probability Density",
+  xlab = "Z")
+
+colorArea(from=-4, to=qnorm(0.025), dnorm) # plot to left shading
+colorArea(from=qnorm(0.975), to=4, dnorm, mean=0, sd=1, col=2, dens=20) # plot to right shading
+colorArea(from=qnorm(0.4), to=qnorm(0.6), dnorm, col=5) # plot to middle shading
+```
+
+
+#### Calculating Z and P values
+```{r helpMenu_normalDistribution}
+?pnorm
+```
+
+> Problem 6.1.36 (Bluman, pg 323)
+>  Find probability using the standard normal distribution
+>  P(-0.20 < z < 1.56)
+
+![Estimate our shading from the Standard Normal Distribution](Week1_ExamplesImages/standard-normal-distribution.png)
+```{r bluman6-1-36_approxgraph}
+curve(dnorm(x), from=-4, to=4, 
+  main = "P(-0.20 < z < 1.56) Approximate Sketch", 
+  ylab = "Probability Density",
+  xlab = "Z")
+
+colorArea(from=qnorm(0.4), # because 0.5 would be z=0, going a little lower for negative Z
+          to=qnorm(0.7), # because 0.5 to 1 would cover 0 < z < 4, going a bit below mid-way (0.75)
+          dnorm)
+```
+
+Or, given z, calculate p
+```{r bluman6-1-36}
+PvalHi <- pnorm(q = 1.56, mean = 0, sd = 1, lower.tail = TRUE)
+PvalLo <- pnorm(q = -0.2) # shorten because defaults for mean, sd, and lower.tail are (0, 1, and TRUE, respectively)
+pVal <- PvalHi - PvalLo
+print(pVal)
+
+curve(dnorm(x), from=-4, to=4, 
+  main = paste0("P(-0.20 < z < 1.56) = ", round(pVal,4)), 
+  ylab = "Probability Density",
+  xlab = "Z")
+
+colorArea(from=-0.2,
+          to=1.56, 
+          dnorm)
+```
+
+> Problem 6.1.45 (Bluman, pg 323)
+>  Find the z-value for given area (aka p-value)
+>  P(X > z) = 0.0239
+
+```{r bluman6-1-45_approxgraph}
+curve(dnorm(x), from=-4, to=4, 
+  main = "P(X > z) = 0.0239 Approximate Sketch", 
+  ylab = "Probability Density",
+  xlab = "Z")
+
+colorArea(from=qnorm(0.99), # because the probability is very small
+          to=4, # because it is a greater than
+          dnorm)
+```
+
+Or, given p, calculate z
+```{r bluman6-1-45}
+z <- qnorm(p = 0.0239,
+           mean = 0,
+           sd = 1,
+           lower.tail = FALSE) # because we are giving area to RIGHT of z
+print(z)
+
+curve(dnorm(x), from=-4, to=4, 
+  main = paste0("P(X > ", round(z, 2),") = 0.0239"), 
+  ylab = "Probability Density",
+  xlab = "Z")
+
+colorArea(from=z, 
+          to=4, # because it is a greater than problem
+          dnorm)
+```
+
+> Problem 6.2.2a (Bluman, pg 337)
+>  Teachers' Salaries
+>   The average annual salary for all US teachers is $47,750. Assume that the distribution is normal and the standard deviation is $5,680. Find the probability that a randomly selected teacher earns
+>   a. Between $35,000 and $45,000 a year
+
+Step 1: Draw normal distribution curve and shade desired area.
+```{r bluman6-2-2a_approxgraph}
+curve(dnorm(x), from=-4, to=4, 
+  main = "Approximate Sketch", 
+  ylab = "Probability Density",
+  xlab = "Z")
+
+colorArea(from=qnorm(0.1),
+          to=qnorm(0.4),
+          dnorm)
+```
+
+Step 2: Find the z values
+```{r bluman6-2-2a_step2}
+mu <- 47750 # mean
+sigma <- 5680 # stdev
+# P(35000 < X < 45000) = ???  OR
+xLo <- 35000
+xHi <- 45000
+zLo <- (xLo - mu) / sigma
+zHi <- (xHi - mu) / sigma
+
+# alternatively - we could write a function!
+getZScore <- function(x, mu, sigma){
+  return((x - mu) / sigma)
+}
+
+print("Comparing the calculation to the function, we get the same results.")
+print(paste("Original zLo: ", zLo, "  Function zLo: ", getZScore(xLo, mu, sigma)))
+
+print("However, order matters - getZScore(xLo, sigma, mu) gives different result")
+print(paste("Original zLo: ", zLo, "  Function zLo: ", getZScore(xLo, sigma, mu)))
+
+print("Unless you specify the parameter to argument matches:")
+print("getZScore(xbar = xLo, sigma = sigma, mu = mu)")
+print(paste("Original zLo: ", zLo, "  Function zLo: ", getZScore(x = xLo, sigma = sigma, mu = mu)))
+```
+
+Step 3: Find the p-value given the z-scores
+```{r bluman6-2-2a_step3}
+# now like example 6.1.36 - given z get p
+PvalLo <- pnorm(q = zLo)
+PvalHi <- pnorm(q = zHi)
+Pval <- PvalHi - PvalLo
+
+# and plot
+curve(dnorm(x), from=-4, to=4, 
+  main = paste0("P($35k < X < $45k) = ", round(Pval, 4)),
+  sub = "given mu=$47.75k & sigma = $5.68k", 
+  ylab = "Probability Density",
+  xlab = "Z")
+
+colorArea(from=zLo, 
+          to=zHi, # because it is a greater than problem
+          dnorm)
+```
+
+
+#### Applying the Central Limit Theorem
+> As sample size n increases without limit, the shape of the distribution of the sample means taken with replacement from a population with mean mu and standard deviation sigma will approach a normal distribution with a mean mu and a standard deviation of sigma/sqrt(n) (Bluman, pg 346)
+
+
+> Problem 6.3.22 (Bluman, pg 353)
+>  Systolic Blood Pressure
+>   Assume that the mean systolic blood pressure of normal adults is 120 millimeters of mercury (mm Hg) and the standard deviation is 5.6. Assume the variable is normally distributed.
+>   a. If an individual is selected, find the probability that the individual's pressure will be between 120 and 121.8 mmHg.
+>   b. If a sample of 30 adults is randomly selected, find the probability that the sample mean [(xbar)] will be between 120 and 121.8 mmHg.
+
+```{r bluman6-3-22}
+# individual first
+iLo <- getZScore(x=120, mu=120, sigma=5.6)
+iHi <- getZScore(x=121.8, mu=120, sigma=5.6)
+pValIndividual <- pnorm(iHi) - pnorm(iLo) 
+
+# sample group
+
+# define the function for z-score when applying the central limit theorem about a central mean
+# assumes n >= 30!
+getSampleMeanZScore <- function(xbar, mu, sigma, n) {
+  return((xbar - mu) / (sigma/sqrt(n)))
+}
+
+sLo <- getSampleMeanZScore(xbar=120, mu=120, sigma=5.6, n=30)
+sHi <- getSampleMeanZScore(xbar=121.8, mu=120, sigma=5.6, n=30)
+pValSample <- pnorm(sHi) - pnorm(sLo)
+
+print(paste0("p-val for individual: ", round(pValIndividual, 4)))
+print(paste0("p-val for sample: ", round(pValSample, 4)))
+```
