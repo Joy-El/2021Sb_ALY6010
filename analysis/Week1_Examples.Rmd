@@ -28,16 +28,15 @@ Show how we can calculate statistical distributions and solve Bluman problems in
 
 
 ```{r libraries}
-library(ggplot2)
+#library(ggplot2)
 ```
 
 ```{r constants}
-DATADIR <- "data/"
-INPUTDATA <- paste0(DATADIR, "LungCapDAtaCSV.csv")
+
 ```
 
 ```{r loadData}
-lungCap <- read.csv(INPUTDATA)
+
 ```
 
 ### R commands for standard normal distribution

@@ -1,0 +1,1317 @@
+---
+title: "Answers for the R Practice Assignments"
+author: "Joy-El Talbot"
+date: "6/9/2021"
+output: html_document
+---
+
+Updated 07/07/2021 by Joy-El Talbot
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Include chunks
+WEEK1 <- TRUE
+WEEK2 <- TRUE
+WEEK3 <- TRUE
+WEEK4 <- TRUE
+WEEK5 <- TRUE
+WEEK6 <- TRUE
+
+# TODO change path to your working directory
+WORKINGDIR <- "C:/Users/joyel/Documents/Roux/ALY6010/2021Sb_ALY6010/"
+
+# R-markdown/Knitr alternative to setwd()
+# MUST be run in this first chunk called "setup"
+knitr::opts_knit$set(root.dir = WORKINGDIR) # sets working dir when Knitting
+
+# TODO if coding live as you build this document copy & paste the setwd() command into your console.
+setwd(WORKINGDIR) # sets working dir for R studio instance IF copied directly into console
+
+# suppress scientific notation
+options(scipen = 99)
+
+# suppress loading strings as factors
+options(stringsAsFactors = FALSE)
+```
+
+## Purpose
+Provide a solution to the Weekly R Practice Assignments. These will provide a common starting point in each following week if folks need to get caught up or want to see one possible solution.
+
+*Note: this example focuses on the R script aspect of the R Practice. While I'll provide some commentary on the results, please do not take this document as an example of the ideal way to present a client-facing report. My goal here is to give you the CODE to keep moving forward.*
+
+
+### Table of Contents
+  
+  1. Purpose
+  2. Project Setup
+  3. Week 1
+  4. Week 2
+  5. Week 3
+  6. Week 4
+  7. Week 5
+  8. Week 6
+
+
+## Project Setup
+
+### Directory Setup
+
+
+```{r createProjectDirectory, eval=FALSE}
+# TODO set eval=TRUE in line above to RUN this code
+# Leave as is, if you already have this directory structure and are running this file from within the analysis/ folder.
+dir.create("data/")
+dir.create("src/")
+dir.create("analysis/")
+dir.create("results/")
+```
+
+### Load Libaries
+
+
+```{r libraries}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(scales) # for comma separator in labels
+library(PerformanceAnalytics) # for alternative correlation plot
+```
+
+### Define Constants
+
+
+```{r constants}
+# input source
+DATADIR <- "data/"
+
+# build results directory
+# TODO name your analysis with the ANALYSISNAME constant
+ANALYSISNAME <- "R_Practice_Answers"  # NO spaces!
+
+DATESTAMP <- format(Sys.time(), "%Y-%m-%d")
+RESULTSDIR <- paste0("results/",DATESTAMP,"-",ANALYSISNAME,"-results/")
+dir.create(RESULTSDIR)
+GRAPHDIR <- paste0(RESULTSDIR, "graphs/")
+dir.create(GRAPHDIR)
+TABLEDIR <- paste0(RESULTSDIR, "tables/")
+dir.create(TABLEDIR)
+
+# define default plot size
+PLOT_WIDTH <- 5
+PLOT_HEIGHT <- 5
+PLOT_UNITS <- "in"
+PLOT_RES <- 96 # required for png() device when units aren't "px"
+```
+
+
+
+## Week 1
+
+### Assignment (summarized)
+
+  1. Create an R script (this document) and Word Report (not shown/provided)
+  2. Import the sampled_dailyCheckouts.csv file, which contains 183,492 rows and 9 columns. 
+  3. Data cleanup - with particular focus on week of year, day of week, date, unified age, and ID formatting.
+  4. Create and export frequency tables, cross-tabulations, histograms, etc. ANSWER: How do you show and compare the results across multiple classes?
+  
+  
+### Step 2 - Load Data
+
+
+```{r W1_S2_loadData, include=WEEK1}
+checkouts <- read.csv(paste0(DATADIR,"sampled_dailyCheckouts.csv"),
+                      stringsAsFactors = FALSE)
+
+# confirm its dimensions match expected 183,492 rows x 9 columns
+dim(checkouts)
+```
+
+### Step 3: Data Cleanup
+
+#### Step 3a: Initial inspection
+Let's look at the data a little to identify what cleanup might be needed. This will get the first pass of the data cleaning, but it is likely that we will find more cleanup needs as we continue analysis. 
+
+
+```{r W1_S3a_examineRawData, include=WEEK1}
+head(checkouts)
+
+# years covered
+unique(checkouts$CheckoutYear)
+
+# age review - let's group by to see if there are any oddities between the two columns
+checkouts %>%
+  group_by(Age.Group.item, Age.Group.collection) %>%
+  summarize(count = n())
+
+# Types of categories/subcategories
+# subgroups code modified from Psidom's response: https://stackoverflow.com/questions/51090048/concatenate-unique-strings-after-groupby-in-r
+checkouts %>%
+  group_by(Category.Group.collection) %>%
+  summarize(count = n(),
+            subgroups = paste(unique(Category.Subgroup.collection), collapse = ','))
+
+```
+
+
+#### Step 3b: Cleanup Focuses
+Based on our initial inspection of the data.
+
+  1. Timestamp - Apparent regular format of MM/DD/YYYY HH:MM:SS AM/PM. *Will break into a date column (as POSIXlt object) AND Hour of day (as 24hr format); also extract week of year and day of week values per notes*
+  2. Age group - Some mismatches & additional category "Teen" in the Age.Group.collection - represent  8.5% of Adult books and 0.3% of Juvenile books (per Age.Group.item). *Will use the Age.Group.item for age categories moving forward.*
+  3. Category.Groups - Mostly Fiction & Non-Fiction; note that there are some unclassified subgroups (empty string). *Will reduce data to just Fiction & Non-Fiction AND add "General" as the subgroup where it is currently blank.*
+
+
+```{r W1_S3b1_cleanupDates, include=WEEK1}
+# 1. Convert CheckoutDateTime (currently <chr> type; aka string/character) to timestamp
+checkouts$DateTime <- strptime(checkouts$CheckoutDateTime, 
+                               format = "%m/%d/%Y %I:%M:%S %p")
+#head(checkouts) # running in Rmd shows <S3: POSIXlt> format; running directly in command line shows this: 2019-05-30 14:10:00
+
+# Now, let's use this all-encompasing date object to get out subsets for our convenience
+checkouts$Date <- strftime(checkouts$DateTime, format = "%Y-%m-%d")
+# convert to a date object
+checkouts$Date <- as.Date(checkouts$Date)
+
+checkouts$Month <- strftime(checkouts$DateTime, format = "%B") # Month name
+# turn CheckoutMonth into an ordered factor to ease plotting later
+checkouts$Month <- factor(checkouts$Month, 
+                                  levels = c("January", "February", "March",
+                                             "April", "May", "June",
+                                             "July", "August", "September", 
+                                             "October", "November", "December"),
+                                  ordered = TRUE) # keeps the order we used in the list provided for levels
+
+checkouts$Hour <- strftime(checkouts$DateTime, format = "%H") # in 24-hr style
+# checkout HOUR is going to always round DOWN (because we are just stripping the hour from the time), but that's ok
+
+checkouts$WeekOfYear <- strftime(checkouts$DateTime, format = "%V") # ISO8601 week of year
+
+checkouts$DayOfWeek <- strftime(checkouts$DateTime, format = "%A") # Full weekday name
+# Factor this value as well
+checkouts$DayOfWeek <- factor(checkouts$DayOfWeek,
+                                      levels = c("Monday", "Tuesday", "Wednesday",
+                                                 "Thursday", "Friday", 
+                                                 "Saturday", "Sunday"),
+                                      ordered = TRUE)
+
+# let's take a peak
+checkouts %>% 
+  select(CheckoutDateTime, DateTime,
+         Date, Month, Hour, WeekOfYear, DayOfWeek) %>%
+  head()
+```
+
+
+```{r W1_S3b2_cleanupAgeGroup, include=WEEK1}
+# just dropping the extra age group
+# There are many ways to do this, here is one:
+checkouts <- subset(checkouts, select = -Age.Group.collection)
+names(checkouts) # confirm intended Age.Group.collection is no longer there
+```
+
+
+```{r W1_S3b3_cleanupCategories, include=WEEK1}
+# change blanks to "General" for subgroup
+
+# before there are ___ blanks:
+sum(checkouts$Category.Subgroup.collection == "") # sum because TRUE = 1 and FALSE = 0
+
+# taking a slice of the Category.Subgroup.collection to include all blank (empty string) values
+# and overwriting those to "General"
+checkouts$Category.Subgroup.collection[checkouts$Category.Subgroup.collection == ""] <- "General"
+sum(checkouts$Category.Subgroup.collection == "") # expect 0
+sum(checkouts$Category.Subgroup.collection == "General") # expect 116,621
+
+
+# Drop rows that aren't fiction/nonfiction
+checkouts <- checkouts %>%
+  filter(Category.Group.collection %in% c("Nonfiction", "Fiction"))
+
+# Preview results
+checkouts %>%
+  group_by(Category.Group.collection, Category.Subgroup.collection) %>%
+  summarize(count = n())
+
+```
+
+
+```{r W1_S3c_cleanupFields, include=WEEK1}
+# let's reduce our fields the the core set moving forward
+# and get them in the order we want
+names(checkouts)
+
+checkouts <- checkouts %>%
+  select(Date,
+         Year = CheckoutYear, # updating name to match the format of our other date-related fields
+         WeekOfYear,
+         Month,
+         DayOfWeek,
+         Hour,
+         Age = Age.Group.item,
+         Collection = Category.Group.collection,
+         SubCollection = Category.Subgroup.collection)
+
+head(checkouts)
+```
+
+
+### Step 4: Create and export frequency tables, cross-tabulations, histograms, etc. 
+ANSWER: How do you show and compare the results across multiple classes?
+
+  a. Distribution of checkouts across different time-windows? Daily, Weekly, Yearly (Exclude Monthly because each month has a different size which can confound the results.)
+  b. Frequencies of different Category/Subcategory vs Age
+  c. Distribution of checkouts by Category or Age vs time-windows
+
+```{r W1_S4a1_distByDay, include=WEEK1}
+# by day
+df.byday <- checkouts %>%
+  group_by(Date) %>%
+  summarize(DailyCheckouts = n())
+(ggplot(df.byday) 
+  + aes(x = Date, y = DailyCheckouts)
+  + geom_histogram(stat = "identity") # because I already aggregated above
+  + ggtitle("Daily Checkouts across Time")
+  + scale_x_date("Date")
+  + scale_y_continuous("Sampled Checkouts (2% of Total)")
+  )
+
+# one crazy outlier! Let's look at it.
+df.byday %>%
+  filter(DailyCheckouts == max(df.byday$DailyCheckouts))
+# 3/13/2020 - the day before the library closes for lockdown
+
+# repeat plot above but zooming in to exclude 3/13/2020 value...
+(ggplot(df.byday) 
+  + aes(x = Date, y = DailyCheckouts)
+  + geom_histogram(stat = "identity") # because I already aggregated above
+  + ggtitle("Daily Checkouts across Time",
+            subtitle = "Excludes 1,625 checkouts on 3/13/2020")
+  + scale_x_date("Date")
+  + scale_y_continuous("Sampled Checkouts (2% of Total)")
+  + coord_cartesian(ylim = c(0,400))
+  )
+ggsave(filename = paste0(GRAPHDIR,"week1_dailycheckouts_zoomed.png"),
+       width = PLOT_WIDTH*1.4, # add multipliers to make image a little bigger or smaller as needed (if needed)
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+```
+
+
+```{r W1_S4a2_distByHour_2020-03-13, include=WEEK1}
+# What do the HOURLY checkouts look like for that one day?
+day20200313 <- checkouts %>% filter(Date == as.Date("2020-03-13"))
+
+png(filename = paste0(GRAPHDIR,"week1_hourlycheckouts_20200313.png"),
+    width = PLOT_WIDTH,
+    height = PLOT_HEIGHT,
+    units = PLOT_UNITS,
+    res = PLOT_RES)
+
+hist(x = as.numeric(day20200313$Hour),
+     breaks = rep(min(day20200313$Hour):max(day20200313$Hour), each=2) +
+                c(-0.4, 0.4),
+     freq = FALSE,
+     main = "Hourly checkouts for 3/13/2020",
+     ylab = "Fraction of Checkouts",
+     xlab = "Hour of 3/13/2020",
+     col = "light blue"
+     )
+
+dev.off()
+
+# repeating hist() so that it displays in the Knitted R...
+hist(x = as.numeric(day20200313$Hour),
+     breaks = rep(min(day20200313$Hour):max(day20200313$Hour), each=2) +
+                c(-0.4, 0.4),
+     freq = FALSE,
+     main = "Hourly checkouts for 3/13/2020",
+     ylab = "Fraction of Checkouts",
+     xlab = "Hour of 3/13/2020",
+     col = "light blue"
+     )
+
+# What I'm doing with breaks in the hist() above.
+#   Setting default breaks such that each integer value falls in the middle.
+#   Adapted from Jonathan Christensen's answer: https://stackoverflow.com/questions/14392647/how-to-separate-the-two-leftmost-bins-of-a-histogram-in-r 
+#      1) determine range via min/max calls
+#      2) create a set of pairs of identical numbers in that range
+rep(min(day20200313$Hour):max(day20200313$Hour), each=2)
+#      3) now let's subtract a little from the first of the pair, and add a little to the second of the pair; we are benefitting from R's tendency to repreat a list over and over. Change the values to shift the widths
+rep(min(day20200313$Hour):max(day20200313$Hour), each=2) + c(-0.4, 0.4)
+
+```
+
+
+_Exclude 3/13/2020 data as an extreme outlier_
+```{r W1_S4a3_distByWeek, include=WEEK1}
+# getting a bit fancy with the ggplot themes :-)
+df.byweek <- checkouts %>%
+             filter(Date != as.Date("2020-03-13")) %>%
+             group_by(Year, WeekOfYear) %>%
+             summarize(WeeklyCheckouts = n())
+
+(ggplot(df.byweek)
+  + aes(x = as.numeric(WeekOfYear), y = WeeklyCheckouts, color = factor(Year))
+  + geom_line(size = 2)
+  + scale_x_continuous("Weeks of Year",
+                       breaks = c(2, 50), # just approximates
+                       labels = c("January", "December"))
+  + scale_y_continuous("Weekly Checkouts")
+  + ggtitle("2020 pandemic creates three checkout patterns",
+            subtitle = "Weekly Checkouts by Year")
+  + labs(caption = "Excludes 1,625 checkouts from 3/13/2020")
+  + scale_color_manual(name = "",
+                       labels = c("2018", "2019", "2020"),
+                       values = c("grey", "dark grey", "#007DBA")) # cerulean?
+  + theme_minimal()
+  + theme(
+      # update some theme items
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.ticks.y = element_line(size = 0.1, color = "grey"),
+      axis.line = element_line(size = 0.1, color = "grey"),
+    
+      # legend updates
+      legend.position = c(0.05, 0.05),
+      legend.justification = c("left", "bottom"),
+      legend.background = element_blank(),
+      
+      # plot caption updates
+      plot.caption = element_text(color = "dark grey",
+                                  face = "italic")
+  )
+  )
+ggsave(filename = paste0(GRAPHDIR,"weeklyCheckouts.png"),
+       width = PLOT_WIDTH*1.2, # add multipliers to make image a little bigger or smaller as needed (if needed)
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+
+```
+
+
+```{r W1_S4b_freqCategoryAge, include=WEEK1}
+# first get the summary across the two categorical fields
+freqCategoryAge <- checkouts %>%
+                   group_by(Age,
+                            # combine collection/subcollection on the fly:
+                            Collection = paste0(Collection, ":", SubCollection)) %>%
+                   summarize(Count = n())
+
+# now make this LONG table WIDE with pivot_wider() from tidyr
+prettyCategoryAge <- freqCategoryAge %>%
+                     # Set Age as column names in wide form, fits better with Cat/SubCat as row names
+                     pivot_wider(names_from = Age, 
+                                 values_from = Count,
+                                 values_fill = 0) # default value if missing
+prettyCategoryAge
+
+# convert to percentages by Age
+percentAgeByCategory <- prettyCategoryAge
+percentAgeByCategory$Adult <- paste(round(percentAgeByCategory$Adult /
+                                            sum(percentAgeByCategory$Adult) * 100, 2), 
+                                    "%")
+percentAgeByCategory$Juvenile <- paste(round(percentAgeByCategory$Juvenile /
+                                               sum(percentAgeByCategory$Juvenile) * 100, 2),
+                                       "%")
+percentAgeByCategory
+
+# export table
+write.csv(percentAgeByCategory, 
+          file = paste0(TABLEDIR, "week1_percentAgebyCollection.csv"),
+          row.names = FALSE)
+# We will apply final formatting in our Report...
+```
+
+
+```{r W1_S4c_distAgeVsTime, include=WEEK1}
+# Want: stacked bar graph showing fraction Adult vs Juvenille Checkouts by Month
+# One graph per year (loop over years)
+
+df.byAgeMonthYear <- checkouts %>%
+                     group_by(Year, Month, Age) %>%
+                     summarize(MonthlyCount = n())
+
+for (year in c(2018, 2019, 2020)) {
+  # have to explicitly PRINT() ggplot if within for loop
+  print(ggplot(df.byAgeMonthYear[df.byAgeMonthYear$Year == year, ]) # slice our data to just the year of interest
+   + aes(x = Month, y = MonthlyCount, fill = Age)
+   + geom_bar(stat = "identity", # we already did the math
+              position = "fill") # to get 100% stacks; use position = "stack" for variable heights
+   + coord_flip()
+   + scale_fill_manual(breaks = c("Adult", "Juvenile"),
+                       values = c("light grey", "dark grey"))
+   + scale_x_discrete("", 
+                      # reverse order of the labels
+                      limits = rev(levels(df.byAgeMonthYear$Month))) 
+   + scale_y_continuous("",
+                        breaks = c(0, 0.5, 1),
+                        labels = c("0%", "50%", "100%"),
+                        expand = expansion(mult = c(0, 0.1)))
+   # update title for each year
+   + ggtitle(paste0("Checkouts by Age Group - ", year))
+   
+   # add annotations for Juvenile and Adult (instead of legend)
+   + annotate("text", label = "Juvenile", 
+              x = "January", y = 0.25,
+              color = "white")
+   + annotate("text", label = "Adult",
+              x = "January", y = 0.75,
+              color = "black")
+   
+   # add annotation for 50% mark
+   + annotate("segment", 
+              x = "January", xend = "December",
+              y = 0.5, yend = 0.5,
+              color = "blue", linetype = "dashed")
+   
+   # aesthetic changes
+   + theme_minimal()
+   + theme(
+        legend.position = "none",
+        
+        # details with background... 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.ticks.x = element_line(size = 0.1, color = "dark grey")
+   )
+   )
+  
+  
+  
+  ggsave(filename = paste0(GRAPHDIR,"week1_checkoutsByAge_", year, ".png"),
+       width = PLOT_WIDTH * 1.2, # add multipliers to make image a little bigger or smaller as needed (if needed)
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+}
+
+df.byAgeMonthYear[df.byAgeMonthYear$Year == 2020, ] %>%
+  pivot_wider(names_from = Age,
+              values_from = MonthlyCount,
+              values_fill = 0)
+```
+
+
+## Week 2
+
+### Assignment (summarized)
+
+  1. Produce several descriptive statistics tables (mean, SD, min, max, N) for entire sample & by group
+  2. Create jitterplot, scatterplot, and boxplot; export these to png
+
+### Step 0 - Data preparation - Weekly Counts
+Assumes that we have run at least these prior chunks: 
+
+  - Project Setup
+  - Load Data
+  - Data Cleanup
+  
+All resulting in a cleaned checkouts data.frame
+```{r W2_S0_weeklyCounts, include=WEEK2}
+head(checkouts)
+df.byWeek <- checkouts %>%
+             group_by(Year, WeekOfYear) %>%
+             summarize(weeklyCount = n())
+```
+
+### Step 1 - Produce descriptive statistics tables
+```{r W2_S1_statisticsTable, include=WEEK2}
+# let's build the overall one by hand
+overallStats <- data.frame("Group" = "Overall",
+                           "Mean" = mean(df.byWeek$weeklyCount),
+                           "Median" = median(df.byWeek$weeklyCount),
+                           "Std.Dev" = sd(df.byWeek$weeklyCount),
+                           "Min" = min(df.byWeek$weeklyCount),
+                           "Max" = max(df.byWeek$weeklyCount),
+                           "N" = length(df.byWeek$weeklyCount))
+overallStats
+
+# let's use dplyr's group_by/summarize to build the rest
+statsByYear <- df.byWeek %>%
+  group_by("Group" = Year) %>% # changing the name to match our overallStats table
+  summarize("Mean" = mean(weeklyCount),
+            "Median" = median(weeklyCount),
+            "Std.Dev" = sd(weeklyCount),
+            "Min" = min(weeklyCount),
+            "Max" = max(weeklyCount),
+            "N" = n()) # here we are counting the rows in the Year
+
+statsByYear
+
+# we can row-bind our two tables since we have been careful to keep the same column order
+summaryStats <- rbind(overallStats,
+                      statsByYear)
+summaryStats
+
+# Finally let's use Age as a grouping... 
+# we need to repeat our original byWeek grouping but to include Age
+df.byAgeWeek <- checkouts %>%
+  group_by(Year, WeekOfYear, Age) %>%
+  summarize(weeklyCount = n())
+head(df.byAgeWeek)
+
+# let's repeat our group_by version to use the df.byAgeWeek data
+statsByAge <- df.byAgeWeek %>%
+  group_by("Group" = Age) %>% # changing the name to match our overallStats table
+  summarize("Mean" = mean(weeklyCount),
+            "Median" = median(weeklyCount),
+            "Std.Dev" = sd(weeklyCount),
+            "Min" = min(weeklyCount),
+            "Max" = max(weeklyCount),
+            "N" = n()) # here we are counting the rows in the Year
+statsByAge
+
+# rbind to the same ongoing table
+summaryStats <- rbind(summaryStats,
+                      statsByAge)
+
+# now let's export
+write.csv(summaryStats,
+          file = paste0(TABLEDIR, "week2_summarystats.csv"),
+          row.names = FALSE)
+
+```
+
+
+### Step 2 - Create jitterplot, scatterplot, and boxplot; export each
+```{r W2_S2a_boxplot, include=WEEK2}
+# we saw some potential for day of week-type patterns in the Daily Checkouts across Time from last week. Let's use a boxplot to look at it further.
+
+# Want: x-axis = Day of Week (Mon thru Sun)
+#       y-axis = Daily Checkouts (of our 2% sample)
+#       boxes = All Daily checkouts from 2018-2020 for that day of week
+
+df.byDay <- checkouts %>%
+  filter(Date != as.Date("2020-03-13")) %>% # exclude extreme outlier
+  group_by(Date, DayOfWeek, Year) %>% # bringing DayOfWeek & Year along for the ride
+  summarize(DailyCounts = n())
+
+(ggplot(df.byDay)
+  + aes(x = DayOfWeek, y = DailyCounts * 50) # add multiplier to get population estimate
+  + geom_boxplot()
+  + ggtitle("Daily Checkouts by Day (2018-2020)")
+  + labs(caption = "Excludes 1,625 checkouts from 3/13/2020\nDaily Checkouts estimated from a 2% random sample")
+  + scale_x_discrete("")
+  + scale_y_continuous("Estimated Daily Checkouts",
+                       labels = comma)
+  
+  + theme(
+      # plot caption updates
+      plot.caption = element_text(color = "dark grey",
+                                  face = "italic")
+  )
+  )
+
+ggsave(filename = paste0(GRAPHDIR,"week2_dailycheckouts_boxplot.png"),
+       width = PLOT_WIDTH * 1.2, # add multipliers to make image a little bigger or smaller as needed (if needed)
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+```
+
+
+```{r W2_S2b_jitterplot, include=WEEK2}
+# Let's expand upon the boxplot a bit... 
+
+# Want: boxplot with overlay of jitterplot
+#       points colored by Year (greys for 2018/2019; blue for 2020)
+#       hide outliers in boxplot (we will show with jitter)
+
+(ggplot(df.byDay)
+  + aes(x = DayOfWeek, y = DailyCounts * 50) # add multiplier to get population estimate
+  + geom_boxplot(outlier.shape = NA) # hide outliers
+ 
+  # add the jitter geom
+  # to get the colors by year only for the jitter, add that aes piece within the geom
+  + geom_jitter(aes(color = factor(Year))) 
+  + scale_color_manual(name = "",
+                       labels = c("2018", "2019", "2020"),
+                       values = c("grey", "dark grey", "#007DBA")) # cerulean?
+ 
+  # titles/labels
+  + ggtitle("Daily Checkouts by Day (2018-2020)")
+  + labs(caption = "Excludes 1,625 checkouts from 3/13/2020\nDaily Checkouts estimated from a 2% random sample")
+  + scale_x_discrete("")
+  + scale_y_continuous("Estimated Daily Checkouts",
+                       labels = comma)
+  
+  # aesthetics
+  + theme(
+      # plot caption updates
+      plot.caption = element_text(color = "dark grey",
+                                  face = "italic")
+  )
+  )
+
+ggsave(filename = paste0(GRAPHDIR,"week2_dailycheckouts_jitter+boxplot.png"),
+       width = PLOT_WIDTH * 1.2, # add multipliers to make image a little bigger or smaller as needed (if needed)
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+```
+
+
+```{r W2_S2c_scatterplot, include=WEEK2}
+# Following up on that jitterplot that showed SOME 2020 data in the IQR of the boxplots, let's show 2020 vs 2019 daily checkouts as a scatter plot.
+
+# Want: x-axis: 2019 daily checkouts from 1/1/2019 to 12/31/2019
+#       y-axis: 2020 daily checkouts from 1/1/2020 to 12/31/2020
+
+# Have: df.byDay made earlier for the boxplot
+head(df.byDay)
+
+# Want: columns = DayOfYear, 2019 Daily Checkouts, 2020 Daily Checkouts
+# MAY want - shift alignment slightly to get same day of week
+
+# add generic day of year field that will be the same regardless of year
+df.byDay$DayOfYear <- as.numeric(strftime(df.byDay$Date, format = "%j")) # 1 to 366
+
+
+# break data up (briefly)
+df.2019 <- filter(df.byDay, Year == 2019)
+df.2020 <- filter(df.byDay, Year == 2020)
+head(df.2019) # first value is 1/2/2019 day 2 a Wednesday
+head(df.2020) # first value is 1/2/2020 day 2 a Thursday
+
+# if we create an alignedDayOfYear for df.2020 that is one day sooner, we can match Wednesday to Wednesday
+df.2020$alignedDayOfYear <- df.2020$DayOfYear + 1
+head(df.2020) # alignedDayOfYear = 2 on a Wednesday
+
+# now we can rejoin the slightly askew data
+df.scatter <- merge(x = df.2019,
+                    y = df.2020,
+                    by.x = 'DayOfYear',
+                    by.y = 'alignedDayOfYear',
+                    all = TRUE, # keep all values, even if data is missing
+                    suffixes = c(".2019", ".2020"))
+
+head(df.scatter[,c("DayOfYear", "DayOfWeek.2019", "DayOfWeek.2020", 
+                   "Date.2019", "Date.2020", "DailyCounts.2019", "DailyCounts.2020")])
+# days of week match (Thursday 2019 to Thursday 2020)
+# date is off by 1
+
+# cleanup NAs - a few sorts
+# drop first line of table because the NA there is uninformative
+df.scatter <- df.scatter[2:length(df.scatter$DayOfYear),]
+
+# likely need to drop last line too
+tail(df.scatter)
+# let's drop last two days
+df.scatter <- df.scatter[1:(length(df.scatter$DailyCounts.2019) - 2), ]
+
+# let's inspect
+head(df.scatter)
+tail(df.scatter)
+
+# remaining NAs in counts can be switched to zeros (no checkouts those days, or very very few)
+df.scatter$DailyCounts.2019[is.na(df.scatter$DailyCounts.2019)] <- 0
+df.scatter$DailyCounts.2020[is.na(df.scatter$DailyCounts.2020)] <- 0
+
+# get max value for limits
+max.plus <- max(df.scatter$DailyCounts.2019, df.scatter$DailyCounts.2020) * 1.1 # to add some buffer
+
+# now our count data is aligned and cleaned up, let's make a scatter plot!
+(ggplot(df.scatter)
+  + aes(x = DailyCounts.2019, y = DailyCounts.2020)
+  + geom_point()
+  
+  # force limits to make a square (best for scatterplots)
+  + scale_x_continuous("2019 Daily Checkouts", limits = c(0, max.plus))
+  + scale_y_continuous("2020 Daily Checkouts", limits = c(0, max.plus))
+  
+  # titles
+  + ggtitle("Comparing Daily Checkouts between Years",
+            subtitle = "2% random sampling of physical items checked out")
+  )
+
+# let's add some color groupings to learn more
+# based on what we saw already, we might divide 2020 into three categories
+#   Pre-lockdown - 1/1 - 3/14 (day 73)
+#   Lockdown - 3/15 - 7/31 (day 212)
+#   Post-lockdown - 8/1 - 12/31
+
+df.scatter$pandemicGroup <- NA
+df.scatter$pandemicGroup[df.scatter$DayOfYear > 212] <- "Post-Lockdown"
+df.scatter$pandemicGroup[df.scatter$DayOfYear <= 212] <- "Lockdown"
+df.scatter$pandemicGroup[df.scatter$DayOfYear <= 73] <- "Pre-Lockdown"
+
+(ggplot(df.scatter)
+  + aes(x = DailyCounts.2019, y = DailyCounts.2020,
+        color = pandemicGroup)
+  + geom_point()
+  
+  # force limits to make a square (best for scatterplots)
+  + scale_x_continuous("2019 Daily Checkouts", limits = c(0, max.plus))
+  + scale_y_continuous("2020 Daily Checkouts", limits = c(0, max.plus))
+  
+  # titles
+  + ggtitle("Comparing Daily Checkouts between Years",
+            subtitle = "2% random sampling of physical items checked out")
+  + scale_color_discrete("2020 Time Periods")
+  
+  # aesthetics
+  + theme(
+      legend.position = "bottom"
+  )
+  )
+
+ggsave(filename = paste0(GRAPHDIR,"week2_dailycheckouts_2019_2020_scatter.png"),
+       width = PLOT_WIDTH * 1.1, 
+       height = PLOT_HEIGHT * 1.1,
+       units = PLOT_UNITS)
+```
+
+
+
+## Week 3
+
+### Assignment (summarized)
+
+  1. I've used (all of) the daily checkouts data from 2019 to find the population mean (mu) for daily checkouts is 16,112! Imagine they estimate that the 2020 lockdowns have decreased the checkouts by 80% to a predicted 3,222 average daily checkouts. Given this information, test if your sample's mean daily checkouts for 2020 supports their estimate at alpha = 0.05. Conduct a one-sample t-test for mean daily checkouts using an appropriate variable from the data set.
+    - Because we only have 2% (or 1/50th) of the raw records, you will need to multiply your daily checkouts by 50 to get to the estimate of daily checkouts. Please create a NEW field called adjustedDailyCheckouts to hold this value.
+    - Use the t.test( ) in R.
+    - Provide the null and the alternative hypothesis for the test both as comments in R and in your Word summary.
+    - Provide the test results and several sentences interpreting the results in your Word summary.
+  2. Another library reported only a 70% drop in average daily checkouts in 2020. Does your data support the same being true for Seattle Public Library? Conduct hypothesis testing for p-value using an appropriate variable from the data sets. Do this in R. Provide the null and the alternative hypothesis for each test. Provide the test results and several sentences interpreting the results.
+
+### Step 0 - Data preparation - Estimated Daily Counts
+Assumes that we have run at least these prior chunks: 
+
+  - Project Setup
+  - Load Data
+  - Data Cleanup
+  
+All resulting in a cleaned checkouts data.frame
+```{r W3_S0_estimatedDailyCounts, include=WEEK3}
+head(checkouts)
+df.byDay2020 <- checkouts %>%
+                filter(Year == 2020) %>%
+                group_by(Date) %>%
+                summarize(dailyCount = n())
+df.byDay2020$estimatedDaily <- df.byDay2020$dailyCount * 50
+```
+
+### Step 1 - 80% decrease t-test
+```{r W3_S1_ttest1, include=WEEK3 }
+# first let's pull out the key information from the text
+
+# 2019 mu = 16,112 daily checkouts
+# 2020 mu estimate = 3,222 daily checkouts (80% decrease from 2019; or 20% of 2019 checkouts)
+
+# alpha = 0.05
+
+# account for 2% sampling by mutliplication factor of 50
+
+# Does our 2% sample support the claim that 2020 checkouts have declined by 80%?
+
+# H0: mu = 3222
+# H1: mu != 3222 (because the claim doesn't include words like "up to" or "at least")
+
+t.test(df.byDay2020$estimatedDaily,
+       mu = 3222,
+       alternative = "two.sided",
+       conf.level = 0.95) # for alpha = 0.05
+
+# note my sample mean is slightly different because of some of the data cleanup assumptions I made.
+
+# With a p-value far below 0.05, our data supports rejecting the null hypothesis.
+# Our sample of Seattle Public Library checkouts does not align with an 80% decrease in checkouts in 2020.
+
+
+
+
+# Alternatively, we might try a one-sided t-test as it can be more informative.
+# H0: mu <= 3222 # 80% or larger decrease results in values less than or equal to 3222
+# H1: mu > 3222 # less than 80% decrease
+
+t.test(df.byDay2020$estimatedDaily,
+       mu = 3222,
+       alternative = "greater",
+       conf.level = 0.95)
+
+# With a p-value far below 0.05, our data supports rejecting the null hypothesis.
+# Our sample of Seattle Public Library checkouts does not align with an 80% (or greater) decrease in checkouts in 2020.
+```
+
+
+### Step 2 - 70% decrease t-test
+```{r W3_S2_ttest2, include=WEEK3 }
+# first let's pull out the key information from the text
+
+# 2019 mu = 16,112 daily checkouts
+# 2020 mu estimate = 4,834 daily checkouts (70% decrease from 2019; or 30% of 2019 checkouts)
+
+# alpha = 0.05
+
+# account for 2% sampling by mutliplication factor of 50
+
+# Does our 2% sample support the claim that 2020 checkouts have declined by 70%?
+
+# H0: mu = 4834
+# H1: mu != 4834 (because the claim doesn't include words like "up to" or "at least")
+
+t.test(df.byDay2020$estimatedDaily,
+       mu = 4834,
+       alternative = "two.sided",
+       conf.level = 0.95) # for alpha = 0.05
+
+# With a p-value of 0.02681, our data supports rejecting the null hypothesis.
+# Our sample of Seattle Public Library checkouts does not align with a 70% decrease in checkouts in 2020.
+```
+
+
+
+## Week 4
+
+### Assignment (summarized)
+
+  1. Are the daily checkouts for 2018 and 2019 the same (alpha 0.05)?
+  2. Did 2020 see significantly fewer daily checkouts than 2019 (alpha 0.05)?
+
+### Step 0 - Data preparation - Daily Counts
+Assumes that we have run at least these prior chunks: 
+
+  - Project Setup
+  - Load Data
+  - Data Cleanup
+  
+All resulting in a cleaned checkouts data.frame
+```{r W4_S0_estimatedDailyCounts, include=WEEK4}
+head(checkouts)
+df.byDay <- checkouts %>%
+            group_by(Year, Date) %>%
+            summarize(dailyCount = n())
+```
+
+
+### Step 1 - Daily checkouts from 2018 & 2019 are the same?
+```{r W4_S1_compareDaily2018_2019, include=WEEK4}
+# H0: mu2018 = mu2019 (claim)
+# H1: mu2018 != mu2019 
+
+# Therefore, two-tailed test
+# Samples are INDEPENDENT
+daily2018 <- df.byDay[df.byDay$Year == 2018, ]
+daily2019 <- df.byDay[df.byDay$Year == 2019, ]
+
+t.test(x = daily2018$dailyCount,
+       y = daily2019$dailyCount,
+       alternative = "two.sided",
+       paired = FALSE, # because independent samples
+       var.equal = FALSE, # going conservative because we don't know
+       conf.level = 0.95)
+
+# At p-value of 0.6146, we fail to reject the null hypothesis that the two samples have the same population mean.
+```
+
+
+### Step 2 - Are the 2020 daily checkouts LESS than those of 2019?
+```{r W4_S2_compareDaily2019_2020, include=WEEK4}
+# H0: mu2019 = mu2020
+# H1: mu2019 > mu2020 (claim) 
+
+# Therefore, right-tail test
+# Samples are INDEPENDENT
+daily2020 <- df.byDay[df.byDay$Year == 2020, ]
+daily2019 <- df.byDay[df.byDay$Year == 2019, ]
+
+t.test(x = daily2019$dailyCount,
+       y = daily2020$dailyCount,
+       alternative = "greater",
+       paired = FALSE, # because independent samples
+       var.equal = FALSE, # going conservative because we don't know
+       conf.level = 0.95)
+
+# At p-value much less than 0.05 (2.2x10^-16), we reject the null hypothesis and our data supports the alternative hypothesis that the 2020 checkouts are less than the 2019.
+```
+
+
+
+## Week 5
+
+### Assignment (summarized)
+
+  1. Pick one of the following (I'll show both)
+    
+    a. Using our SPL data, create two contingency tables
+    b. Using the Iris dataset, create a correlation table
+    
+  2. Produce and export one regression table with the SPL data
+  
+### Version 1b - Iris dataset
+I'm doing the Iris dataset first so that all of the pieces of the SPL analysis flow together.
+
+```{r W5_S1b_irisData_correlationTable, include=WEEK5}
+iris_measurements <- datasets::iris # loading the Iris data from datasets package
+
+tibble(head(iris_measurements)) # displaying the top of the data as a tibble because I like the format better (let's me see the data types)
+
+# basic version
+base_correlation_table <- iris_measurements %>%
+                          select(-Species) %>% # remove Species; cor requires only numeric columns
+                          cor() %>% # cor will auto-run all pairwise combinations
+                          round(3) # round the result
+base_correlation_table
+write.csv(base_correlation_table,
+          file = paste0(TABLEDIR,"week5_iris_correlations.csv"),
+          row.names = FALSE)
+
+# fancy version with histograms and scatter plots 
+# from PerformanceAnalytics library
+iris_measurements %>%
+  select(-Species) %>% # again remove the Species field
+  chart.Correlation(histogram=TRUE)
+
+# re-run for each species separately
+for (species in unique(iris_measurements$Species)) { # on each iteration a different species is run
+  iris_measurements %>%
+    filter(Species == species) %>% # filter to just that species' data
+    select(-Species) %>%
+    chart.Correlation(histogram = TRUE)
+    title(species) # add title to the graphs
+}
+
+# repeat last call to also save it to file
+for (species in unique(iris_measurements$Species)) {
+  png(filename = paste0(GRAPHDIR, "week5_", species, "_corrplot.png"))
+  iris_measurements %>%
+    filter(Species == species) %>%
+    select(-Species) %>%
+    chart.Correlation(histogram = TRUE)
+  title(species) # add title to the graphs
+  dev.off()
+}
+```
+  
+### Version 1a - SPL data
+
+#### Contingency Tables
+```{r W5_S1a_SPLData_contingencyTable, include=WEEK5}
+# Let's start with our checkouts table AND remind ourselves of what that looks like
+head(checkouts)
+
+# first contingency table - Collection vs Age
+# step 1 - group data by Collection and Age
+collection_age <- checkouts %>%
+                  group_by(Collection, Age) %>%
+                  summarize(Checkouts = n()) # count the rows because each row is ONE checkout
+
+# step 2 - make the table "wide" by showing Ages as column names
+collection_v_age <- collection_age %>%
+                    pivot_wider(names_from = Age,
+                                values_from = Checkouts,
+                                values_fill = 0)
+
+# step 3 - view results
+collection_v_age
+
+# step 4 - export to csv
+write.csv(collection_v_age,
+          file = paste0(TABLEDIR, "week5_SPL_collectionVage_contingency.csv"),
+          row.names = FALSE)
+
+# second contingency table - Month vs Age
+# group by both values and then use pivot_wider to move one to the column labels
+month_vs_age <- checkouts %>%
+                group_by(Month, Age) %>%
+                summarize(Checkouts = n()) %>% # count the data as each row is ONE checkout
+                pivot_wider(names_from = Age,
+                            values_from = Checkouts,
+                            values_fill = 0) # if we don't have data assume zero checkouts
+month_vs_age # this is data for ALL years 2018 - 2020
+write.csv(month_vs_age,
+          file = paste0(TABLEDIR, "week5_SPL_monthVage_contingency.csv"),
+          row.names = FALSE)
+```
+
+#### Produce & export one regression table with SPL data
+```{r W5_S2_SPLData_regression, include=WEEK5}
+# Let's start with our checkouts table AND remind ourselves of what that looks like
+head(checkouts)
+
+# We need to build a derivative table that includes two different numerical fields
+# I'm going to make several counts on the WeekOfYear and Year fields so that we can try
+# some of the correlation plots from above too. 
+# What this means is that in each case, I'll be using WeekOfYear and Year to group the data
+# And then count from there. 
+
+# Age
+age <- checkouts %>%
+  group_by(Year, WeekOfYear, Age) %>%
+  summarize(Checkouts = n()) %>%
+  pivot_wider(names_from = Age,
+              values_from = Checkouts,
+              values_fill = 0)
+head(age)
+
+# Collection
+collection <- checkouts %>%
+  group_by(Year, WeekOfYear, Collection) %>%
+  summarize(Checkouts = n()) %>%
+  pivot_wider(names_from = Collection,
+              values_from = Checkouts,
+              values_fill = 0)
+head(collection)
+
+# Time of Day
+checkouts$Hour <- as.numeric(checkouts$Hour)
+checkouts$DayPart <- ifelse(checkouts$Hour %in% c(0, 1,2,3,4,5), "early morning",
+                     ifelse(checkouts$Hour %in% c(6, 7, 8, 9, 10, 11), "morning",
+                     ifelse(checkouts$Hour %in% c(12, 13, 14, 15, 16, 17), "afternoon",
+                            "night")))
+checkouts %>% select(Hour, DayPart) %>% unique()
+
+daypart <- checkouts %>%
+  group_by(Year, WeekOfYear, DayPart) %>%
+  summarize(Checkouts = n()) %>%
+  pivot_wider(names_from = DayPart,
+              values_from = Checkouts,
+              values_fill = 0)
+head(daypart)
+
+# now let's merge these together
+checkouts_YearWeek <- merge(x = age,
+                            y = collection,
+                            by = c("Year", "WeekOfYear"),
+                            all = TRUE) # keep data even if missing in one of x or y
+checkouts_YearWeek <- merge(x = checkouts_YearWeek, 
+                            y = daypart,
+                            by = c("Year", "WeekOfYear"),
+                            all = TRUE)
+# There might be NAs from the merges
+sum(is.na(checkouts_YearWeek)) # 0 in my case
+
+head(checkouts_YearWeek)
+
+# plot chart correlations
+checkouts_YearWeek$WeekOfYear <- as.numeric(checkouts_YearWeek$WeekOfYear)
+chart.Correlation(checkouts_YearWeek, histogram = TRUE)
+
+# Linear regression: predict number of juvenile checkouts based on adult checkouts
+fit.adultCheckouts <- lm(Juvenile ~ Adult, 
+                         data = checkouts_YearWeek)
+# Let's view the fit diagnostics and then pull some of them into a regression table
+summary(fit.adultCheckouts)
+par(mfrow=c(2,2))
+plot(fit.adultCheckouts)
+
+# Table of regression information to inlcude: 
+#    Diagnostics of overall Fit (Multiple R-squared, Adjusted multiple R-squared, Fstatistic & p-value)
+#    Coefficients & their fits (t-value & Pr(>|t|))
+summary.fit.adultCheckouts <- summary(fit.adultCheckouts)
+fstat.fit.adultCheckouts <- summary.fit.adultCheckouts$fstatistic
+coefficients.fit.adultCheckouts <- data.frame(summary.fit.adultCheckouts$coefficients)
+results.fit.adultCheckouts <- rbind(# build table one row at a time
+                                    c("Overall Metrics", "Mult. R-squared", "Adj. R-squared", "F-statistic", "p-value"),
+                                    c("", # no value 
+                                      round(summary.fit.adultCheckouts$r.squared, 3),
+                                      round(summary.fit.adultCheckouts$adj.r.squared, 3),
+                                      round(summary.fit.adultCheckouts$fstatistic[1], 3),
+                                      round(pf(q = fstat.fit.adultCheckouts[1],
+                                               df1 = fstat.fit.adultCheckouts[2],
+                                               df2 = fstat.fit.adultCheckouts[3], 
+                                               lower.tail = FALSE), 4)),
+                                    c("", "", "", "", ""), # add an empty row
+                                    c("Variable", "Estimate", "t-value", "Pr(>|t|)", ""),
+                                    c("(Intercept)",
+                                      round(coefficients.fit.adultCheckouts$Estimate[1], 3),
+                                      round(coefficients.fit.adultCheckouts$t.value[1], 3),
+                                      round(coefficients.fit.adultCheckouts$Pr...t..[1], 4),
+                                      ""),
+                                    c("Adult",
+                                      round(coefficients.fit.adultCheckouts$Estimate[2], 3),
+                                      round(coefficients.fit.adultCheckouts$t.value[2], 3),
+                                      round(coefficients.fit.adultCheckouts$Pr...t..[2], 4),
+                                      ""))
+colnames(results.fit.adultCheckouts) <- c("", "", "", "", "") # blank out column names
+results.fit.adultCheckouts
+write.csv(results.fit.adultCheckouts,
+          file = paste0(TABLEDIR, "week5_results_fit_adultCheckouts.csv"),
+          row.names = FALSE)
+
+# graph results
+(ggplot(checkouts_YearWeek)
+  + aes(x = Adult, y = Juvenile)
+  + geom_point()
+  + geom_abline(intercept = fit.adultCheckouts$coefficients['(Intercept)'],
+                slope = fit.adultCheckouts$coefficients['Adult'])
+  + ggtitle("Predicting Juvenile Checkouts based on Adult Checkouts",
+            subtitle = paste0("Adj. R-squared = ", round(summary.fit.adultCheckouts$adj.r.squared, 4)))
+  + scale_y_continuous("Weekly Juvenile Checkouts (2% Sample)")
+  + scale_x_continuous("Weekly Adult Checkouts (2% Sample)")
+  )
+ggsave(filename = paste0(GRAPHDIR,"week5_weeklyCheckouts_prediction.png"),
+       width = PLOT_WIDTH, 
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+```
+
+
+
+## Week 6
+
+### Assignment (summarized)
+Extend last week's regression model with a categorical variable.
+
+  1. Choose a categorical variable and add it to the regression as a dummy variable. Create a scatter plot with multiple regression lines (one for each categorical value).
+  2. Subset the data by the categorical variable and run independent regressions. Plot these as well.
+  
+### Part 1 - Regression with a categorical variable
+Last week, we attempted to predict Juvenile weekly checkouts based on weekly Adult behavior. This week, let's add a categorical variable to that analysis. In particular, we are going to add coding for the time of year (holiday - summer and winter vs not). 
+
+```{r W6_S0_dataprep}
+checkouts_Age <- checkouts %>%
+                 group_by(Year, WeekOfYear, Age) %>%
+                 summarize(Checkouts = n()) %>%
+                 pivot_wider(names_from = Age,
+                             values_from = Checkouts,
+                             values_fill = 0)
+# add in holiday categories
+checkouts_Age$Holiday <- "No" # default
+checkouts_Age$Holiday[as.numeric(checkouts_Age$WeekOfYear) %in% c(1, 52, 53)] <- "Winter" # last week-ish Dec + first week Jan
+checkouts_Age$Holiday[as.numeric(checkouts_Age$WeekOfYear) %in% c(25:34)] <- "Summer" # roughly mid-June to late-Aug
+head(checkouts_Age)
+
+# drop outlier with highest value for both
+checkouts_Age <- checkouts_Age[checkouts_Age$Adult < 1200,]
+
+# plot to see the separation
+(ggplot(checkouts_Age)
+  + aes(x = Adult,
+        y = Juvenile,
+        color = Holiday)
+  + geom_point()
+  + ggtitle("Weekly Checkouts")
+  + scale_x_continuous("Weekly Adult Checkouts (2% Sample)")
+  + scale_y_continuous("Weekly Juvenile Checkouts (2% Sample)")
+  + scale_color_discrete("")
+  + theme(legend.position = "bottom")
+  )
+
+```
+
+```{r W6_S1_categoricalvariable_regression, include=WEEK6}
+fit.adultCheckouts.Holiday <- lm(Juvenile ~ Adult + factor(Holiday),
+                                 data = checkouts_Age)
+# review results
+summary(fit.adultCheckouts.Holiday)
+par(mfrow=c(2,2))
+plot(fit.adultCheckouts.Holiday)
+
+# store slopes and intercepts for plotting
+lines.fit.adultCheckouts.Holiday <- data.frame(
+  slopes = rep(fit.adultCheckouts.Holiday$coefficients['Adult'], 3),
+  intercepts = c(fit.adultCheckouts.Holiday$coefficients['(Intercept)'], # No holiday
+                 fit.adultCheckouts.Holiday$coefficients['(Intercept)'] + 
+                   fit.adultCheckouts.Holiday$coefficients['factor(Holiday)Winter'], # Winter
+                 fit.adultCheckouts.Holiday$coefficients['(Intercept)'] + 
+                   fit.adultCheckouts.Holiday$coefficients['factor(Holiday)Summer']), # Summer
+  groups = c("No", "Winter", "Summer"))
+  
+# plot the lines
+(ggplot(checkouts_Age)
+  + aes(x = Adult,
+        y = Juvenile,
+        color = Holiday)
+  + geom_point()
+  + geom_abline(data = lines.fit.adultCheckouts.Holiday,
+                aes(slope = slopes,
+                    intercept = intercepts,
+                    color = groups))
+  + ggtitle("Weekly Checkouts",
+            subtitle = paste0("with predictions Juvenile ~ Adult + Holiday; Adj R-squared ", 
+                              round(summary(fit.adultCheckouts.Holiday)$adj.r.squared, 4)))
+  + scale_x_continuous("Weekly Adult Checkouts (2% Sample)")
+  + scale_y_continuous("Weekly Juvenile Checkouts (2% Sample)")
+  + scale_color_discrete("")
+  + theme(legend.position = "bottom")
+  )
+ggsave(filename = paste0(GRAPHDIR,"week6_weeklyCheckouts_prediction_withholiday.png"),
+       width = PLOT_WIDTH, 
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+
+```
+
+### Part 2 - Regression with individual subsets
+Now let's compare our SINGLE regression with dummy variables to multiple regressions (one for each subset of data with a particular Holiday value). We will show the results via a graph and a table of the R-squared values.
+
+```{r W6_S2_categoricalsubsets_regression, include=WEEK6}
+# recreate last week's model to pull the r-squared values
+fit.adultCheckouts <- lm(Juvenile ~ Adult, 
+                         data = checkouts_Age)
+results.rsquared <- data.frame("Equation" = "Juvenile ~ Adult",
+                               "Group" = "All",
+                               "Multiple R-squared" = round(summary(fit.adultCheckouts)$r.squared, 4),
+                               "Adjusted R-squared" = round(summary(fit.adultCheckouts)$adj.r.squared, 4))
+# sequentially add on each new set of results, first from the part 1 regression
+results.rsquared <- rbind(results.rsquared,
+                          data.frame(
+                            "Equation" = "Juvenile ~ Adult + Holiday",
+                            "Group" = "All",
+                            "Multiple R-squared" = round(summary(fit.adultCheckouts.Holiday)$r.squared, 4),
+                            "Adjusted R-squared" = round(summary(fit.adultCheckouts.Holiday)$adj.r.squared, 4)))
+
+# view thus far
+results.rsquared
+
+# make some updates to the slope/intercept data.frame for plotting
+lines.fit.adultCheckouts.Holiday$subsets <- "Dummy Variable" # add new line to differentiate all vs subset
+
+# Now subset the data and run a regression for each Holiday set
+for (holidaySet in c("No", "Winter", "Summer")) {
+  # run model
+  fit.adultCheckouts.subset <- lm(Juvenile ~ Adult,
+                                  data = checkouts_Age[checkouts_Age$Holiday == holidaySet,])
+  summary(fit.adultCheckouts.subset)
+  par(mfrow = c(2,2))
+  plot(fit.adultCheckouts.subset)
+  
+  # save R-squareds
+  results.rsquared <- rbind(results.rsquared,
+                          data.frame(
+                            "Equation" = "Juvenile ~ Adult",
+                            "Group" = holidaySet,
+                            "Multiple R-squared" = round(summary(fit.adultCheckouts.subset)$r.squared, 4),
+                            "Adjusted R-squared" = round(summary(fit.adultCheckouts.subset)$adj.r.squared, 4)))
+  
+  # save slope & intercept for plotting
+  lines.fit.adultCheckouts.Holiday <- rbind(lines.fit.adultCheckouts.Holiday,
+      data.frame(slopes = fit.adultCheckouts.subset$coefficients['Adult'],
+                 intercepts = fit.adultCheckouts.subset$coefficients['(Intercept)'],
+                 groups = holidaySet,
+                 subsets = "Subset"))
+}
+
+# view resulting tables
+lines.fit.adultCheckouts.Holiday # weird rownames but that's ok
+results.rsquared # unsurprisingly the winter fit is trickiest (only a few data points)
+
+# output R-squared results
+write.csv(results.rsquared,
+          file = paste0(TABLEDIR, "week6_summaryOfModels_rSquared.csv"),
+          row.names = FALSE)
+
+# Build final graph
+(ggplot(checkouts_Age)
+  + aes(x = Adult,
+        y = Juvenile,
+        color = Holiday)
+  + geom_point()
+  + geom_abline(data = lines.fit.adultCheckouts.Holiday,
+                aes(slope = slopes,
+                    intercept = intercepts,
+                    color = groups,
+                    linetype = subsets)) # to get different type of line for all vs subset
+  + ggtitle("Weekly Checkouts",
+            subtitle = "with predictions Juvenile ~ Adult by Holiday dummy variables or Holiday subset")
+  + scale_x_continuous("Weekly Adult Checkouts (2% Sample)")
+  + scale_y_continuous("Weekly Juvenile Checkouts (2% Sample)")
+  + scale_color_discrete("Holiday")
+  + scale_linetype_discrete("Model Type")
+  + theme(legend.position = "bottom")
+  )
+ggsave(filename = paste0(GRAPHDIR,"week6_weeklyCheckouts_prediction_withholiday_subsets.png"),
+       width = PLOT_WIDTH, 
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+# note how the subset version has varying slopes AND intercepts, while the dummy variable version only has varying intercepts
+```

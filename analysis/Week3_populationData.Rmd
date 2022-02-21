@@ -1,0 +1,112 @@
+---
+title: "Field of Flowers - Generate Population Data"
+author: "Joy-El Talbot"
+date: "6/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# TODO change path to your working directory
+WORKINGDIR <- "C:/Users/joyel/Documents/Roux/ALY6010/2021Sb_ALY6010/"
+
+# R-markdown/Knitr alternative to setwd()
+# MUST be run in this first chunk called "setup"
+knitr::opts_knit$set(root.dir = WORKINGDIR) # sets working dir when Knitting
+
+# TODO if coding live as you build this document copy & paste the setwd() command into your console.
+setwd(WORKINGDIR) # sets working dir for R studio instance IF copied directly into console
+
+# suppress scientific notation
+options(scipen = 99)
+
+# suppress loading strings as factors
+options(stringsAsFactors = FALSE)
+
+# set seed for randomizer
+set.seed(4537)
+```
+
+## Purpose
+Generate a population of dummy data for the week 3 group exercise. 
+
+### Scenario
+
+Imagine a field of flowers as our population. It contains flowers of different sizes and colors. Can you describe the field based on a sample of the data?
+
+### Table of Contents
+  
+  1. Purpose
+    a. Scenario
+  2. Project Setup
+  3. Data Creation
+  4. Data Sampling
+  
+## Project Setup
+
+### Define Constants
+```{r constants}
+# input source
+DATADIR <- "data/"
+
+# build results directory
+# TODO name your analysis with the ANALYSISNAME constant
+ANALYSISNAME <- "fieldOfFlowers"  # NO spaces!
+
+DATESTAMP <- format(Sys.time(), "%Y-%m-%d")
+RESULTSDIR <- paste0("results/",DATESTAMP,"-",ANALYSISNAME,"-results/")
+dir.create(RESULTSDIR)
+
+```
+## Data Creation
+Creating a field of flowers, following certain parameters (defined frequencies, means, and standard deviations). Here's an example of what the field contains.
+
+```{r createData, echo=FALSE}
+# set the core parameters for the population
+flowerColors <- c("violet", "yellow", "white")
+heightMeans <- c("violet" = 5, "yellow" = 8, "white" = 8)
+heightSDs <- c("violet" = 3, "yellow" = 1, "white" = 3)
+fractions <- c("violet" = 0.4, "yellow" = 0.4, "white" = 0.2)
+fieldSize <- 10000
+
+# function to choose ONE flower!
+individual <- function(color, fraction, heightMean, heightSD){
+  # pick your color
+  chosenColor <- sample(x = color, 
+                        size = 1, 
+                        prob = fraction)
+  chosenHeight <- rnorm(n = 1, 
+                        mean = heightMean[chosenColor],
+                        sd = heightSD[chosenColor])
+  return(c(chosenColor, chosenHeight))
+}
+
+# Now let's build the population
+field <- data.frame()
+for (i in 1:fieldSize) {
+  field <- rbind(field, 
+                 individual(flowerColors, fractions, heightMeans, heightSDs))
+}
+names(field) <- c("Color", "Height")
+field$Height <- round(as.numeric(field$Height), 2)
+field[c(1:5,(fieldSize-5):fieldSize), ]
+```
+
+## Data Sampling
+For each group, sample 5% of the flowers from the field.
+```{r sampleData}
+groups <- 4 # number of group sets to make
+sampleSize <- 0.05
+
+for (group in 1:groups) {
+  rows <- sample(fieldSize, 
+                 size = (sampleSize*fieldSize), 
+                 replace = FALSE)
+  set <- field[rows, ]
+  write.csv(x = set,
+            file = paste0(RESULTSDIR, "field_sample_", group, ".csv"),
+            row.names = FALSE)
+}
+```
+

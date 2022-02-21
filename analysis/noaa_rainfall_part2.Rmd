@@ -1,0 +1,468 @@
+---
+title: "NOAA Rainfall - Continued Analysis"
+author: "Joy-El Talbot"
+date: "6/3/2021"
+output: html_document
+---
+
+updated: 6/6/2021 by Joy-El
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# TODO change path to your working directory
+WORKINGDIR <- "C:/Users/joyel/Documents/Roux/ALY6010/2021Sb_ALY6010/"
+
+# R-markdown/Knitr alternative to setwd()
+# MUST be run in this first chunk called "setup"
+knitr::opts_knit$set(root.dir = WORKINGDIR) # sets working dir when Knitting
+
+# TODO if coding live as you build this document copy & paste the setwd() command into your console.
+setwd(WORKINGDIR) # sets working dir for R studio instance IF copied directly into console
+
+# suppress scientific notation
+options(scipen = 99)
+
+# suppress loading strings as factors
+options(stringsAsFactors = FALSE)
+```
+
+## Purpose
+Quickly explore a new data set.
+
+## Assumptions
+
+  1. HPCP *hourly rain data is in units of inches* having already been converted from hundredths of inches before we downloaded it.
+  2. HPCP 999.99 values represent missing data and will be *excluded* from the analysis.
+
+### Table of Contents
+  
+  1. Purpose
+  2. Project Setup
+  3. Analysis
+  
+### Appendices
+  
+  1. Output Tables
+  2. Output ggplot Graphs
+  3. Output base-R Graphs
+
+
+## Project Setup
+
+### Directory Setup
+```{r createProjectDirectory, eval=FALSE}
+# TODO set eval=TRUE in line above to RUN this code
+# TODO update as you desire for your directory
+# TODO manually move data sources into the data/ folder
+dir.create("data/")
+dir.create("src/")
+dir.create("analysis/")
+dir.create("results/")
+```
+
+### Load Libaries
+```{r libraries}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(purrr) # part of tidyverse to get access to the map() function
+```
+
+### Define Constants
+```{r constants}
+# input source
+DATADIR <- "data/"
+
+# build results directory
+ANALYSISNAME <- "noaa_rainfall"  # NO spaces!
+
+DATESTAMP <- format(Sys.time(), "%Y-%m-%d-%H%M%S") # includes hours, minutes, and seconds if running multiple times in a day
+RESULTSDIR <- paste0("results/",DATESTAMP,"-",ANALYSISNAME,"-results/")
+dir.create(RESULTSDIR)
+GRAPHDIR <- paste0(RESULTSDIR, "graphs/")
+dir.create(GRAPHDIR)
+TABLEDIR <- paste0(RESULTSDIR, "tables/")
+dir.create(TABLEDIR)
+
+# define default plot size
+PLOT_WIDTH <- 5
+PLOT_HEIGHT <- 5
+PLOT_UNITS <- "in"
+PLOT_RES <- 96 # required for png() device when units aren't "px"
+```
+
+### Load data
+```{r loadData}
+rain <- utils::read.csv(paste0(DATADIR, "multicity_rain_noaa.csv"),
+                        stringsAsFactors = FALSE)
+```
+
+## Analysis
+
+### Initial Viewing
+```{r exploration}
+head(rain)
+rain[0:10,]
+rain[2000:2010,]
+summary(rain)
+unique(rain$STATION_NAME)
+```
+
+### Data Cleanup
+
+  1. Convert 999.99 HPCP values to NA
+  2. Summarize to daily rainfall
+  3. Create day of year field in summary data
+
+```{r datacleanup_step1}
+# Step 1 - Convert 999.99 HPCP values to NA
+clean_rain <- rain
+
+clean_rain$HPCP[clean_rain$HPCP == 999.99] <- NA
+
+summary(clean_rain)
+
+clean_rain <- clean_rain[!is.na(clean_rain$HPCP), ]
+
+summary(clean_rain)
+```
+
+#### Some notes about the HPCP column
+
+According to the [data documentation from NOAA](https://www1.ncdc.noaa.gov/pub/data/cdo/documentation/PRECIP_HLY_documentation.pdf), the HPCP column is originally gathered as hundreths of inches of rainfall. The 99999 value is used to represent missing data values. 
+
+Given the format of the 99999 value in our imported data as 999.99, we ASSUME that the data has been converted to inches by dividing all HPCP values by 100.
+
+
+```{r datacleanup_step1b}
+# Step 1b - determine units of HPCP and name accordingly
+clean_rain <- rename(clean_rain, inchesRain = HPCP)
+head(clean_rain)
+```
+
+```{r datacleanup_step2}
+# Step 2 - Summarize to daily rainfall
+
+# Step 2a - get date string from timestamp
+clean_rain$day <- as.character(map(strsplit(clean_rain$DATE, " "), 1))
+
+# Step 2b - group by date string and sum inchesRain to get daily rainfall
+rain_summary <- clean_rain %>%
+  group_by(day) %>%
+  dplyr::summarise(dailyRainInches = sum(inchesRain))
+
+rain_summary$year <- substr(rain_summary$day, 0, 4)
+```
+
+```{r datacleanup_step3}
+# create field for day of year number
+rain_summary$date <- as.Date(rain_summary$day, format = "%Y%m%d")
+
+# strftime() solution from stackoverflow, hat-tip @Gavin Simpson; https://stackoverflow.com/questions/7958298/how-do-you-convert-posix-date-to-day-of-year
+rain_summary$dayOfYear <- strftime(rain_summary$date, format = "%j") %>%
+                            as.numeric()
+head(rain_summary)
+```
+
+
+### Explore Data via Daily Rain field
+
+#### Plot average daily rainfall by year
+```{r plotByyear}
+df_plot <- rain_summary %>%
+  group_by(year) %>%
+  dplyr::summarise(averageDailyRain = mean(dailyRainInches)) %>%
+  arrange(desc(averageDailyRain))
+
+head(df_plot)
+write.csv(df_plot,
+          file = paste0(TABLEDIR,"aveDailyRainbyYear.csv"),
+          row.names = FALSE)
+
+(ggplot(df_plot)
+  # reorder() orders first field according to order of second field
+  #   defaults to ascending order on second field
+  #     override with desc() function around second field
+ #+ aes(x = reorder(as.character(year), desc(averageDailyRain)), y = averageDailyRain)
+ + aes(x = as.character(year), y = averageDailyRain)
+ + geom_bar(stat = "identity")
+ + ggtitle(label = "Daily rain averages remain consistent each year.",
+           subtitle = "Average Daily Rain fall per year")
+ + scale_x_discrete("Year")
+ + scale_y_continuous("Average Daily Rainfall (Inches)")
+ )
+
+ggsave(filename = paste0(GRAPHDIR, "aveDailyRainbyYear.png"),
+       width = PLOT_WIDTH,
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+```
+
+#### Plot daily rainfall across each year
+Goal: view line graph of daily rainfall for each year
+  x-axis = days of year
+  y-axis = total rain in inches
+  group = color-code by year, maybe facet
+
+Recommended reading - [examples of boxplots & jitterplots](https://cmdlinetips.com/2019/02/how-to-make-grouped-boxplots-with-ggplot2/)
+
+```{r plotDailyRainTimeseries}
+df_plot <- rain_summary
+df_plot$unifiedDate <- as.Date(strptime(df_plot$dayOfYear, format = "%j"))
+
+(ggplot(df_plot)
+ + aes(x = unifiedDate,
+       y = dailyRainInches,
+       group = year)
+ + geom_line(aes(color = year))
+ + facet_grid(year ~ .)
+ + theme(legend.position = "none")
+ + ggtitle(label = "Daily Rain fall highlights wetter and drier periods.",
+           subtitle = "Daily Rain fall per year")
+ + scale_x_date("Day of Year", 
+                date_labels = "%b",
+                date_breaks = "1 month")
+ + scale_y_continuous("Daily Rainfall (Inches)")
+ )
+
+# Finding it hard to identify patterns in the time series (too much noise, eg.
+# too much variability). Instead going to try plotting as boxplots to condense 
+# down the variability and facilitate comparisons.
+
+df_plot$month <- strftime(df_plot$unifiedDate, format = "%b")
+df_plot$month <- factor(df_plot$month,
+                        levels = c("Jan", "Feb", "Mar", "Apr",
+                                   "May", "Jun", "Jul", "Aug",
+                                   "Sep", "Oct", "Nov", "Dec"),
+                        ordered = TRUE)
+head(df_plot)
+(ggplot(df_plot)
+  + aes(x = month,
+        y = dailyRainInches,
+        fill = factor(year))
+  + geom_boxplot()
+  + scale_x_discrete("Month")
+  + scale_y_continuous("Daily Rain (Inches)")
+  + coord_cartesian(ylim = c(0,3))
+  + ggtitle(label = "Daily Rain fall highlights wetter & drier periods.",
+            subtitle = paste0("Daily Rain fall by month & year\nExlcudes ",
+                              sum(rain_summary$dailyRainInches > 3),
+                              " days with > 3 inches of rain"))
+  + scale_fill_discrete("Year")
+  + theme(legend.position = "bottom")
+  )
+ggsave(filename = paste0(GRAPHDIR, "dailyRainbyMonthYear_boxplot.png"),
+       width = PLOT_WIDTH*2,
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+
+```
+
+#### Compare plot types - histogram, bar graph, and boxplot
+Purpose: show the same (or as close the same as possible) data with all three plot types.
+```{r compareHistBarBox}
+# Histogram shows frequency of each value for a continuous variable
+#  in this case, dailyRainInches from the rain_summary table will be our continuous variable
+(ggplot(rain_summary)
+ + aes(x = dailyRainInches)
+ + geom_histogram(bins = 20) # I chose 20 pretty arbitrarily
+ + scale_x_continuous("Daily Rain (Inches)")
+ + scale_y_continuous("Number of Days")
+ + ggtitle("Most days experienced little rainfall",
+           subtitle = "Distribution of Rain by Day (2005-2010)")
+ )
+
+ggsave(filename = paste0(GRAPHDIR, "dailyRain_hist.png"),
+       width = PLOT_WIDTH*2,
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+
+# let's exclude days with NO rain
+no_rain_days <- sum(rain_summary$dailyRainInches == 0)
+(ggplot(rain_summary[rain_summary$dailyRainInches > 0, ])
+ + aes(x = dailyRainInches)
+ + geom_histogram(bins = 20) # I chose 20 pretty arbitrarily
+ + scale_x_continuous("Daily Rain (Inches)")
+ + scale_y_continuous("Number of Days")
+ + ggtitle("Most days experienced little rainfall",
+           subtitle = paste0("Distribution of Rain by Day (2005-2010); excludes ",
+                             no_rain_days,
+                             " days without any recorded rain."))
+ )
+ggsave(filename = paste0(GRAPHDIR, "dailyRain_excludeNoRain_hist.png"),
+       width = PLOT_WIDTH*2,
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+
+# Bar graph shows a summary (typically count or average) of a continuous variable 
+# across multiple categorical values. 
+#   in this case, dailyRainInches will be our continuous variable, year will be our
+#   categorical, and we will show the average dailyRain for each year.
+
+# geom_bar defaults to counting each item provided, to get other types of summaries
+# we need to do these ourselves.
+df_plot <- rain_summary %>%
+  group_by(year) %>%
+  summarise(aveRain = mean(dailyRainInches))
+
+(ggplot(df_plot)
+  + aes(x = year, y = aveRain)
+  + geom_bar(stat = "identity") # sending stat "identity" to tell ggplot to use the raw values
+  + scale_x_discrete("Year")
+  + scale_y_continuous("Average Daily Rain (Inches)")
+  + ggtitle("Average daily rain has changed little over the years",
+            subtitle = "Average Daily Rain by Year")
+  )
+
+ggsave(filename = paste0(GRAPHDIR, "dailyRainByYear_bar.png"),
+       width = PLOT_WIDTH*2,
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+
+# Boxplots summarize the distribution of a continuous variable (specifically 
+# median, IQR, and 1.5 IQR) across the entire dataset (one boxplot) or for multiple
+# categorical values.
+#   in this case, dailyRainInches will be our continuous variable, year will be our
+#   categorical
+
+(ggplot(rain_summary)
+  + aes(x = year, y = dailyRainInches)
+  + geom_boxplot()
+  + scale_x_discrete("Year")
+  + scale_y_continuous("Daily Rain (Inches)")
+  + ggtitle("Daily Rain tends to fall below 2.5 inches / day",
+            subtitle = "Daily Rain by Year (2005 - 2010)")
+  )
+ggsave(filename = paste0(GRAPHDIR, "dailyRainByYear_box.png"),
+       width = PLOT_WIDTH*2,
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+
+# let's exclude days with NO rain
+no_rain_days <- sum(rain_summary$dailyRainInches == 0)
+(ggplot(rain_summary[rain_summary$dailyRainInches > 0, ])
+  + aes(x = year, y = dailyRainInches)
+  + geom_boxplot()
+  + scale_x_discrete("Year")
+  + scale_y_continuous("Daily Rain (Inches)")
+  + ggtitle("Daily Rain tends to fall below 2.5 inches / day",
+            subtitle = paste0("Daily Rain by Year (2005-2010); excludes ",
+                             no_rain_days,
+                             " days without any recorded rain."))
+ )
+ggsave(filename = paste0(GRAPHDIR, "dailyRainByYear_excludeNoRain_box.png"),
+       width = PLOT_WIDTH*2,
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+
+# Let's go back to the first box plot, but zoom in on the boxes
+(ggplot(rain_summary)
+  + aes(x = year, y = dailyRainInches)
+  + geom_boxplot()
+  + scale_x_discrete("Year")
+  + scale_y_continuous("Daily Rain (Inches)")
+  + ggtitle("Daily Rain tends to fall below 2.5 inches / day",
+            subtitle = "Daily Rain by Year (2005 - 2010); does not show points above 2.5 inches")
+  + coord_cartesian(ylim = c(0, 2.5))
+  )
+ggsave(filename = paste0(GRAPHDIR, "dailyRainByYear_zoomed_box.png"),
+       width = PLOT_WIDTH*2,
+       height = PLOT_HEIGHT,
+       units = PLOT_UNITS)
+```
+
+
+#### Plot March 2010 data vs other years
+Scatter plots to compare March rainfall across years.
+# TODO make this plot!
+
+
+TODO add rounds of "Chapters" ##, "Sub-chapters" ###, "Sub-sub-chapters" ####, etc AND code blocks to build out your analysis.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Appendix - Examples for Outputting code
+TODO Feel free to remove if desired
+
+### Output Tables
+```{r outputTables, eval=FALSE}
+byYear <- checkouts %>%
+  group_by(CheckoutYear) %>%
+  summarise(Count = n())
+print(byYear)
+
+write.csv(byYear,
+          file = paste0(TABLEDIR,"Checkouts_by_year.csv"),
+          row.names = FALSE) # to suppress row.names of 1, 2, 3...
+```
+
+  + `write.csv` ensures formatting of output matches CSV file standards
+  + `write.table` gives more flexiblity but usually not needed
+  + Other commands for writing JSON, XML, and other formats can be found with a quick search (and usually a library() package).
+
+
+### Output Graph Images
+#### With ggplot2
+```{r outputGraphs_ggplot, eval=FALSE}
+# wrap in parentheses so the "+" signs are a the left, making it easier to comment out lines
+(ggplot(checkouts)
++ aes(x = factor(CheckoutYear))  # adding factor() so these names become x-axis label names
++ geom_bar()
++ ggtitle("Patrons checkout fewer books in 2020")
++ labs(subtitle = "Seattle Public Library - Physical Book Checkouts")
++ scale_y_continuous("Physical Books Checked Out\n(2% sample)")
+#+ scale_x_discrete("") # no label
++ scale_x_discrete("Year")
+)
+
+# saves the last image you plotted to file by default
+# OTHERWISE you can pass a ggplot object to the plot= argument
+ggsave(filename = paste0(GRAPHDIR,"ggplot_CheckoutsByYear.png"),
+       width = PLOT_WIDTH*0.9, # add multipliers to make image a little bigger or smaller as needed (if needed)
+       height = PLOT_HEIGHT*1.1,
+       units = PLOT_UNITS)
+```
+
+  + Graph first, then save after (similar to table output workflow)
+  + `ggsave()` will write the last plot to file
+  + Setting constants for plot size makes it easy to keep images of consistent size
+  + Nudge size larger or smaller with a size multiplier to the PLOT_WIDTH or PLOT_HEIGHT constants
+
+
+#### With base R plots
+```{r outputGraphs_basePlot, eval=FALSE}
+# open output file
+png(filename = paste0(GRAPHDIR,"basePlot_CheckoutsByYear.png"),
+    width = PLOT_WIDTH,
+    height = PLOT_HEIGHT,
+    units = PLOT_UNITS,
+    res = PLOT_RES)
+
+# create plot
+hist(x = checkouts$CheckoutYear,
+     main = "Patrons checkout fewer books in 2020",
+     sub = "Seattle Public Library - Physical Book Checkouts",
+     xlab = "Year",
+     ylab = "Physical Books Checked Out\n(2% sample)")
+      
+# close the output device
+dev.off()
+```
+
+  + Sandwich file-saving code around the graph-building code
+  + If your graph building errors out, you may leave "devices" open 
+    + Avoid by testing graph code first (without opening a device)
+    + Fix by repeatedly run dev.off() in the console

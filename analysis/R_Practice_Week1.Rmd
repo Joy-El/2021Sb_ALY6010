@@ -1,0 +1,1104 @@
+---
+title: "R Practice"
+author: "Anubhav Saha"
+date: "05/27/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+#Invoke the requried library packages
+library(data.table)
+library(lubridate)
+library(bit64)
+library(dplyr)
+library(stringr)
+library(anytime)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+```
+
+## R Refresher
+
+Everything in R is an object
+There are 6 basic data types in R. The sixth (raw) is not discussed here
+These are:
+
+1. character
+2. numeric (real or decimal)
+3. integer
+4. logical
+5. complex. 
+
+In analysis, elements of these data types are combined to form data structures
+such as atomic vectors. An atomic vector holds data of a single data type
+Examples of atomic data types discussed earlier are given below:
+
+1. character: "xyz", "New York"
+2. numeric: 5.5, 7, 8.5
+3. integer: 5L (The L tells R to store this as an integer)
+4. logical: TRUE, FALSE (Observe the capitalization!) 
+5. complex: 4 + 5i where is the square root of -1 and is imaginary.
+
+In AI, machine learning, data science and business analytics, we are typically only concered with the first four,since complex numbers rarely occur in business.
+
+In R you need to define an object with the assignment operator which is this: <-
+In Windows machine you can generate this by using the Alt and hyphen key simulatenously. The hyphen key ("_/-") key is left of the +/= key. On Macbooks you can get this by pressing the option and "_/-" simultenously. In some cases when you have to specify exact matches then you should use the "==" notation. Check the key bindings on your computer. If you are using RStudio then under the Tools menu you will find a Keyboard Shortcut Help (Option/Shift/k) that provide the key strokes combinations for various editing actions. 
+
+Characters
+
+The character data type holds text and is created using quotes. 
+Both single and double quotes can be used to define characters and are, for the most part,interchangeable. However, it is recommended to use double quotes to define characters and to use single quotes to write a quote within a character.
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+var <- "this is a character statement" 
+var
+var <- "this is a 'quote within a character statement'"
+var
+```
+Numeric
+The numeric data type can hold both integer and double (decimal) values.
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+var <-  9
+var
+var <- 9 + 0.45
+var
+# Check the datatype of any object
+is.numeric(var)
+# Check the type of a numeric object
+typeof(var)
+# Another way to check the datatype of any object
+class(var)
+
+```
+
+Integer
+The integer data type can hold only integers and is a subset of the numeric data type
+Any integer can be numeric, but any numeric might not be an integer. 
+Storing integer data types requires less memory than storing numeric data types. 
+Thus, when we know in advance that a variable will only take integer values, 
+we can use the integer data type, instead of the numeric data type, to save memory. 
+We define integer data types by using the as.integer function or putting an L 
+at the end of the integer value. Integer values are typically only used as the 
+looping variable in for loops.
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+var <- as.integer(9) 
+var
+var <- as.integer(9) 
+var
+## [1] 9
+
+var <- 9L 
+var
+
+# Logical
+# The logical data type holds logical values (TRUE/FALSE).
+var <- (9 < 5)
+var
+## [1] FALSE
+var <- (9 > 5)
+var
+var <- TRUE
+var
+## [1] TRUE
+```
+
+Converting Between Data Types
+Data types can be converted to other data types. 
+For example, a logical data type can be converted to integer; 
+in particular, TRUE gets converted to 1 and FALSE gets converted to 0.
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+var <- (9 == 5)
+var
+## [1] FALSE
+
+var <- as.integer(var)
+var
+## [1] 0
+
+# Sometimes the conversion doesn’t make sense: 
+var <- "This is a character"
+var
+## [1] "this is a character"
+var <- as.integer(var)
+## Warning: 
+## NAs introduced by coercion
+var
+## [1] NA
+```
+
+This NA value brings us to our next concept regarding data types.
+
+## Missing Values
+
+A missing value is represented in R by the NA value. 
+Note, this value CANNOT be treated as a character;
+if we wanted to know if a variable holds the NA value, 
+then we use the is.na function, NOT ==.
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+var <- NA
+var
+
+var <- (9 < 5) 
+var
+
+var <- TRUE
+var
+var <- (9 == 5) 
+var
+var <- as.integer(var) 
+var
+var <- "this is a character"
+var
+var <- NA 
+var
+is.na(var)
+
+var == 'NA' 
+is.na(var)
+var == "NA"
+is.na(var)
+var <- "NA"
+is.na(var)
+var <- 'NA'
+is.na(var)
+```
+
+R Data Structures
+
+A data type is just a class of values that can be concretely constructed and represented. Data type cannot be reduced anymore, while a data structure can, as it consists of multiple fields of different data. A crude analogy - a data type is an atom, while data structures are molecules.
+There are four basic data structures in R, including 
+
+1. vectors
+2. lists
+3. arrays
+4. data frames. 
+
+These data structures allow us to define variables that can hold more than one value.
+Vectors
+Vectors are one-dimensional data structures that hold values of the same data type. 
+Because they are one dimensional, they have a length attribute, which gives us the number of elements in the vector. There are several ways to define empty vectors of each data type and the most common way is to use the integer, character, numeric, and logical R functions. 
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# Vectors
+# R stores every value as a vector which is a one dimensional array of values
+# If you create an object such as:
+vec <-  1 # R sees this as a vector of value and length 1
+vec
+
+var <- integer(10)
+var
+var <- character(10)
+var# [1] "" "" "" "" "" "" "" "" "" ""
+var <- logical(10)
+var# [1] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
+
+# We can also create vectors using the c function, which stands for concatenate, 
+# to manually enter the values in the vector. 
+# For vectors that will hold certain sequences of numbers,
+# we can use the : operator, or the seq and rep functions.
+
+var <- c(1, 55, 2, 5, 72, 84, 2, 17, 6, 42.5) 
+var
+
+var <- 1:12
+var
+
+var <- seq(from = 1, to = 20, by = 3) 
+var
+
+var <- seq(from = 1, to = 20, by = 3) 
+var
+
+var <- seq(from = 1, to = 20, by = 0.2) 
+var
+
+var <- rep(1:5, times = 2)
+var
+
+# To get the value of the vector at a particular index (location), we use square brackets
+
+var[5]
+
+# We can add elements to a vector using the c function 
+# (which is why it stands for concatenate).
+
+var <-  c(var, 6)
+var
+
+# The number of elements in the vector is given by the length of the vector and is 
+# obtained using the length function.
+
+length(var) 
+
+# 1] 12
+
+unique(length(var))
+
+# Vectors can hold missing values (NAs) and a vector can be checked for
+# missing values in several ways.
+var <- c(7, 6, 3, NA, 9, 10)
+var
+
+#Check whether the fourth element in the vector is NA
+is.na(var[4]) 
+
+is.na(var)
+
+anyNA(var) 
+
+
+# As mentioned earlier, vectors can only hold values of the same data type. 
+# If we try to define a vector using values of different data types, 
+# then all values will be coerced to a data type that can hold all values. 
+# In particular, logicals and integers will be coerced to numeric, 
+# and all will be coerced to characters.
+
+var <- c(TRUE, "this is a character", 9, 0.54) 
+var
+
+# R will automatically coerce all the elements in an atomic object to a single
+# mode or datatype (character >numeric >logical)
+c("hello", 4.56, FALSE)
+c(4.56, FALSE)
+
+typeof(c("hello", 4.56, FALSE))
+typeof(c(4.56, FALSE))
+
+
+# If you create a vector of random values from a normal distribution:
+rnorm(n = 10)
+
+# The output above is a vector of length 10
+# You can create your own vectors with the c() function
+c(1,2,3)
+
+# You can also assign a name to each of the values in your vector
+vec <- c(a = 1, b = 2, c = 3, d = 4, e = 6)
+vec
+# a b c d e 
+# 1 2 3 4 6 
+
+# Many functions expect a vector as an input
+mean(vec)
+
+sum(vec)
+
+# Vectors help you to work efficiently
+factorial(vec)
+
+# If there are multiple elements in a vector R will apply the function 
+# to each element of the vector
+# The function pmax pmax*() and pmin*() take one or more vectors as arguments, 
+# recycle them to common length and return a single vector 
+# giving the ‘parallel’ maxima (or minima) of the argument vectors.
+
+vec2 <- c(p = 5, q = 6, r = 20, s = 1, t = 5)
+pmax(vec, vec2)
+ # a  b  c  d  e 
+ # 5  6 20  4  6
+
+# You can extract any element of a vector by placing a pair of brackets 
+# behind the vector. Inside the brackets place the number of the element 
+# that you would like to extract. For example, vec[4] would return the 
+# third element of the vector named vec.
+vec
+
+vec[4]
+
+# You can also use [] to extract multiple elements of a vector. 
+# Place the vector c(1,3,5) between the brackets below. 
+vec
+# a b c d e 
+# 1 2 3 4 6 
+vec[c(1,3,5)]
+# a c e 
+# 1 3 6
+
+# Adding two vectors
+c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) + c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+# [1]  2  4  6  8 10 12 14 16 18 20
+
+1 + c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+# [1]  2  3  4  5  6  7  8  9 10 11 
+```
+
+The data structure for holding values of different data types is the list.
+
+Lists
+Lists are similar to vectors, but can hold values of different data types. 
+We define an empty list using the list function. 
+We can also use the list function to manually initialize a list with certain elements.
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+var <- list()
+var
+
+var <- list("this is a character", 9.75, 9, TRUE) 
+var
+
+
+# Besides holding different data types, 
+# lists can also hold different data structures themselves.
+
+var <- list(c(1, 2, 3), c(4, 5, 6, 7)) 
+var
+
+# To get the value of the list at a specific index (location),
+# we use double square brackets.
+var[[2]]
+
+# We can also dynamically add to the list.
+var[[3]] <- "this is a character"
+var
+```
+
+Arrays
+
+Arrays are the multidimensional counterparts of vectors, and like vectors, can only hold values of the same data type.We can initialize an empty or populated array using the array function.
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+
+var <- array(dim = c(3, 4, 2)) 
+var
+
+var <- array(1, dim = c(3, 4, 2)) 
+var
+
+
+# A special case of an array is a matrix (by far the most common type of array). 
+# We can initialize an empty or populated matrix using the matrix function.
+
+var <- matrix(nrow = 10, ncol = 10) 
+var
+
+
+var[7, 7] <- 77
+var
+
+
+var <- matrix(1, nrow = 10 , ncol = 10) 
+var
+
+
+var <- matrix(1:20, nrow = 10, ncol = 2, byrow = FALSE) 
+var
+
+# The dim function returns the dimensions of an array or matrix.
+
+dim(var)
+
+head(var)
+# We can also get an entire row or column of an array.
+var[1,]
+
+var[, 2]
+var
+```
+
+Data Frames
+
+Data frames are similar to matrices, but the columns of a data frame can be (and often are) of different data types. 
+Data frames are arguably the most important R data structure for machine learning, data science and business analytics. 
+We initialize a data frame using the data.frame function. 
+Within R it is important to set the stringsAsFactors argument to FALSE if 
+we do not want characters to be treated as R factors.
+We can get the structure of the data frame, such as the name and data type of each 
+column using the str function.
+  
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+data <- data.frame(word = c("word1", "word2", "word3", "word4", "word5"), 
+                   number = c(1, 2, 3, 4, 5), stringsAsFactors = FALSE)
+dim(data)
+
+# We can use the function str() to understand the structure of a data frame
+# This provides the class, the number of observations and variables. For each
+# variable it also provides the data type - character / numeric etc., and a brief 
+# peek at the values of these variables
+
+str(data)
+# 'data.frame':	5 obs. of  2 variables:
+#  $ word  : chr  "word1" "word2" "word3" "word4" ...
+#  $ number: num  1 2 3 4 5
+
+# If we just want the names of each column, we can use the names function.
+names(data)
+
+## [1] "word" "number"
+
+# To print out a specific number of rows, 
+# either at the beginning or end of the data frame, 
+# we use the head and tail functions respectively. 
+# The following commands print out the first 3 and 
+# last 3 rows of the data frame, respectively.
+
+head(data, 2)
+##    word number
+## 1 word1      1
+## 2 word2      2
+## 3 word3      3
+
+tail(data, 3)
+##    word number
+## 3 word3      3
+## 4 word4      4
+## 5 word5      5
+
+# We can get the dimension, number of rows, and number of columns of the data frame.
+
+dim(data) 
+## [1] 5 2
+nrow(data) 
+## [1] 5
+
+ncol(data) 
+## [1] 2
+
+# We can also find row(s) that meet certain criteria. 
+# For example, we can find the row(s) for which the column 
+# “word” contains the character “word2”.
+
+which(data$word == "word2") 
+## [1] 2
+data[data$word == "word2", ] 
+## word number
+## 2 word2 2
+```
+
+Reading Dataframes
+
+It is too time consuming and impractial to create data frames manually, 
+as we did above. Instead, we often want to read them in from a flat file, 
+such as a comma separated values (csv) file.
+We need to set our working directory to where the csv file(s) is located and we can import the csv file from that location
+There are many functions to read data from a file. We will be using the read.csv function is used to read in data. 
+It has several important arguments that need to be specified. 
+To correctly specify these arguments, we need to understand certain properties of the csv file. The csv - stands for "comma separated values" and sometimes you might also get a tsv or "tab separated values" file. If the file contains headers (column names), we set the header argument to TRUE. 
+If the csv file does not contain headers, so we set the header argument to FALSE. 
+We do not want columns with character values to be loaded as factors, so we set the stringsAsFactors argument to FALSE. 
+Furthermore, missing values within columns that hold character values are represented as empty strings. Thus, we set the na.strings argument to “”. If there is no header in the csv file, we do not have column names and we can use default column names such V1, V2, V3, etc. are used. 
+
+Beginners in R should also become familiar with setwd() and getwd() functions. As you gain experience you should learn the package "here" and R projects to associate where the associated source files of your project lives.
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# We first define the file path and you can define it on your computer using the     # directory as defined by you.
+# 
+file_path_1 <- ("C:/Users/anubh/Downloads/R Presentation/UberandLyft/")
+
+## Data can be downloaded from here:
+## https://www.kaggle.com/ravi72munde/uber-lyft-cab-prices#cab_rides.csv
+
+
+##data <- read.csv(file = paste0(file_path_1,"cab_rides.csv")
+
+rideDF <- read.csv(file.choose())
+rideDFDB = fread("C:/Users/anubh/Downloads/R Presentation/UberandLyft/cab_rides.csv")
+
+
+
+
+# Compute statistics to know your data
+summary(rideDF)
+str(rideDF)
+head(rideDF)
+dim(rideDF)
+sapply(rideDF, class)
+
+```
+
+Just as we read in a csv file to populate the data frame, we can write out a data frame into a csv file. The row.names argument controls whether or not row names are included in the csv file as by  default, row names are the row numbers as characters. We often do not to write row names, so we set this argument to FALSE. We are writing out the same file as an example and use a different name as as to not delete the previous file. You can delete this file later since this is just an example
+We use the write.csv function:
+
+`write.csv(data, paste0(file_path_1,"Customers_v2.csv"), row.names = FALSE) `
+
+Functions
+
+Basic function data structure
+my_fun <- function(arg1,arg2) {
+  body
+}
+
+Function technical structure
+body(add)
+{
+  x + y
+}
+<environment: R GlobalEv>
+environment(add) is usually invisible but it is important as to where the function looks for the arguments
+Where is the function defined
+What is returned in a function
+The last expression evaluated is the return value. 
+The return(value) forces the function to stop execution and return value
+This function returns the absolute value 
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+#Example add function
+add <- function(x,y =1){
+  x + y
+}
+#R has two ways of specifying arguments - by name or by position
+add(4,3)
+
+f <- function(x){
+  if (x < 0) {
+    -x
+  } else {
+    x
+  }
+}
+f(-5)
+#Functions are objects
+mean2 <-  mean  #still is a function
+mean2(1:10)
+#[1] 5.5
+#Create a function without assigning a name
+function(x) {x + 1}
+#Anonymous function - Call it one line
+(function(x) { x + 1})(2)
+f(-5)
+#Functions are objects
+mean2 <-  mean  #still is a function
+mean2(1:10)
+#[1] 5.5
+#Create a function without assigning a name
+function(x) {x + 1}
+#Anonymous function - Call it one line
+(function(x) { x + 1})(2)
+ratio <- function(x, y) {
+  x / y
+}
+
+# Call ratio() with arguments 3 and 4
+ratio(3, 4)
+
+mean(c(1:9, NA), trim = 0.1, na.rm = TRUE)
+
+
+```
+
+Summary
+
+* Three parts of a function
+  + Arguments
+  + Body
+  + Environment
+* Return value is the last executed expression or the  first executed return(statement)
+* Functions can be treated like usual R objects
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+
+#Environments: Scoping describes how R looks up values by name
+#R searches for the argument in its current environment and
+#then goes up one level to search that environment
+x <-10
+x
+f <- function() {
+  x <- 1
+  y <- 2
+c(x, y)
+}
+f() 
+#x and y are in the body of the function and the vector returned is
+#[1] 1 2
+#If a variable defined inside a function is not found in its
+#current environment it searches for the variable one level up
+#Example
+x <- 2
+g <- function() {
+  y <- 1
+  c(x, y)
+}
+g()
+#[1] 2 1
+#It searches for x in its current env. and then goes to search
+#for it one level higher up
+#If x is not found in the local environment or at a higher level
+#an error will result
+# rm(x)
+# g <- function() {
+#   y <- 1
+#   c(x, y)
+# }
+# g()
+#Error in g() : object 'x' not found
+#Scoping describes only where and not when to look for a variable
+#Return value could depend on when you call it
+```
+
+Review of functions - Key Points
+
+* Define a function using name <- function(...args...) {...body...}.
+* Call a function using name(...values...).
+* R looks for variables in the current stack frame before looking for them at the top level.
+* Usehelp(thing) to view help for something.
+* Put comments at the beginning of functions to provide help for that function.
+* Annotate your code!
+* Specify default values for arguments when defining a function using name = value in the argument   list.
+* Arguments can be passed by matching based on name, by position, or by omitting them (in which      case the default value is used).
+
+Looping and Control Statements
+
+We often want to process each row of a data frame and do repeated calculations
+We use control statements to perform this processing in R. 
+There are multiple options when repeating calculations in R: vectorized operations, for loops and apply function
+
+A key difference between R and many other languages is vectorization. When you write functions using sum the total function, sum is much faster than the interpreted for loop because sum is coded in C to work with a vector of numbers. Many of R’s functions work this way; the loop is hidden from you in C. Learning to use vectorized operations is a key skill in R.
+
+For example, to add pairs of numbers contained in two vectors which is shown in the next code segment. You could loop over pairs adding each in turn but that wouldbe inefficient in R. Instead of using i in a loop, weuse the function seq_along to generate indices for each element of the 
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+a <- 1:10
+a
+b <- 1:10
+b
+
+sum_a_b <- numeric(length = length(a))
+for (i in seq_along(a)) {
+  sum_a_b[i] <- a[i] + b[i]
+}
+sum_a_b
+
+#The "+" symbol is a vectorized function that can operate on entire vectors at once
+sum_a_b_2 <- a + b
+sum_a_b_2
+#The all.equal function compares these two sums
+all.equal(sum_a_b, sum_a_b_2)
+```
+
+
+
+If Statements
+
+If statements check if a condition is satisfied and if the condition is satisfied, an action is performed. If the condition is not satisfied, another action is performed. Multiple conditions can be checked.
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+
+if (9 == 7) {
+  print("Yes, 9 is equal to 7")
+} else if (9 == 8) { 
+  print("Yes, 9 is equal to 8")
+} else {
+print("Yes, 9 is equal to 9")
+}
+
+# For Loops
+# For loops iterate a certain number of times and perform an action during each iteration
+
+for (i in 1:12) { 
+  print(i)
+}
+
+
+
+```
+
+
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# taxi ride in data, remove because of no price
+table(is.na(rideDF$price))
+table(rideDF$name == "Taxi")
+ride <- filter(rideDF, name != "Taxi")
+tail(ride)
+```
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# rename last column to make it more meaningful
+names(ride)[10] <- "product_name"
+
+table(ride$surge_multiplier)
+```
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# convert epoch time into normal time
+library(anytime)
+ride <- mutate(ride, time = anytime(ride$time_stamp / 1000),
+               date = anydate(ride$time_stamp / 1000))
+str(ride)
+```
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# extract hour from time
+library(lubridate)
+ride <- mutate(ride, hour = hour(ride$time))
+head(ride)
+```
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# add day of week to data
+ride <- mutate(ride, day = weekdays(ride$date))
+ride$day <- as.factor(ride$day)
+str(ride)
+```
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# add weekend or not binary variable
+ride <- mutate(ride, is_weekend = (day %in% c("Sunday", "Saturday")))
+# make sure number matches
+table(ride$day)
+table(ride$is_weekend)
+```
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# convert price of transactions with surge multiplier to base price
+ride <- mutate(ride, base_price = price / surge_multiplier)
+head(ride)
+```
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# sort order of days of week
+ride$day <- factor(ride$day, levels(ride$day)[c(4,2,6,7,5,1,3)])
+head(ride)
+```
+
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# grouping services
+ride <- mutate(ride, level = 1)
+ride$level[which(ride$product_name %in% c("UberX", "Lyft"))] <- 2
+ride$level[which(ride$product_name %in% c("UberXL", "WAV", "Lyft XL"))] <- 3
+ride$level[which(ride$product_name %in% c("Black", "Lux", "Lux Black"))] <- 4
+ride$level[which(ride$product_name %in% c("Black SUV","Lux Black XL"))] <- 5
+ride$level <- as.factor(ride$level)
+```
+
+######
+# EDA
+######
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# break dataset to uber and lyft
+uber <- filter(ride, cab_type == "Uber")
+lyft <- filter(ride, cab_type == "Lyft")
+class(uber)
+```
+
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# percentage of market share
+table(ride$cab_type) / length(ride$cab_type) * 100
+```
+
+
+```{r, echo = T, comment = NA, tidy = T, tidy.opts=list(width.cutoff=60)}
+# add weekend or not binary variable
+ride <- mutate(ride, is_weekend = (day %in% c("Sunday", "Saturday")))
+# make sure number matches
+table(ride$day)
+table(ride$is_weekend)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+ggplot(ride, aes(x = base_price, fill = cab_type)) + geom_histogram(bins = 24) +
+  ggtitle("Histogram of Price by Company") + xlab("Price") + labs(fill = "Company")
+# almost no uber falls in the first category, that is, very few uber below $5
+# right-skewed, 
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r, echo=FALSE}
+g1 <- ggplot(ride, aes(x = cab_type, y = price)) + geom_boxplot() + ylim(0, 100) +
+  ggtitle("With Surge Multipiers") + xlab("Company") + ylab("Price")
+g2 <- ggplot(ride, aes(x = cab_type, y = base_price)) + geom_boxplot() + ylim(0, 100) +
+  ggtitle("Without Surge Multipiers") + xlab("Company") + ylab("Price")
+grid.arrange(g1, g2, ncol = 2) 
+```
+
+
+```{r, echo=FALSE}
+ggplot(ride,
+       aes(x = day, y = base_price, colour = cab_type)) + 
+       geom_boxplot() + 
+       labs(colour= "Company") +
+       xlab("Day of Week") + 
+       ylab("Price") +
+       ggtitle("Price for Each Day of Week, by Company")
+```
+
+
+
+```{r, echo=FALSE}
+ggplot(ride, aes(x = as.factor(hour), y = base_price, colour = cab_type)) + geom_boxplot() +
+  labs(colour= "Company") + xlab("Hour") + ylab("Price") +
+  ggtitle("Price for Each Hour, by Company") 
+```
+
+
+
+```{r, echo=FALSE}
+ggplot(ride, aes(x = distance, y = base_price, colour = cab_type)) + geom_point() +
+  ggtitle("Price VS. Distance by Company") + xlab("Distance") + ylab("Price") +
+  labs(colour = "Company")
+```
+
+
+```{r, echo=FALSE}
+ggplot(ride, aes(x = source, y = base_price, colour = cab_type)) + geom_boxplot() +
+  ggtitle("Price of Different Area, Source, by Company") + xlab("Source") +
+  ylab("Price") + theme(axis.text.x = element_text(angle = -45)) + labs(colour = "Company") 
+```
+
+
+```{r, echo=FALSE}
+ggplot(ride, aes(x = destination, y = base_price, colour = cab_type)) + geom_boxplot() +
+  ggtitle("Price of Different Area, Destination, by Company") + xlab("Source") +
+  ylab("Price") + theme(axis.text.x = element_text(angle = -45)) + labs(colour = "Company")
+```
+
+
+```{r, echo=FALSE}
+ggplot(ride, aes(x = level, y = base_price, colour = cab_type)) + geom_boxplot() +
+  ggtitle("Price by Service Level, by Company") + xlab("Service Level") + ylab("Price") +
+  labs(colour = "Company")
+```
+
+##Working with dates
+
+```{r}
+
+## Data can be downloaded from here:
+## https://www.kaggle.com/hamelg/lesson-16-dates and download
+
+dates <- read.csv("C:/Users/anubh/Downloads/R Presentation/dataset/dates_lesson_16.csv",
+                 stringsAsFactors=FALSE)
+
+dates
+
+typeof(dates[[1]])
+```
+
+When you load data with date columns into R, is typically stored as a character vector (or factor if you do not set stringsAsFactors=FALSE).
+
+To work with dates in R, you need to convert them from character format to a date format. R contains a built in function as.Date() that converts strings to dates.
+
+```{r}
+first_col <- as.Date(dates$month_day_year,  # Character vector to convert
+             format= "%m/%d/%y")            # Format of the dates to convert
+
+first_col                               # Check the new dates
+
+typeof(first_col)                       # Check type
+class(first_col)                        # Check class
+```
+
+When you use as.Date() you have to provide the format of the dates in the character data you are trying to convert. In the example above, the dates were in the month, day, year format with each number separated by a slash, so we had to provide the format string "%m/%d/%y". The default format for as.Date() is year, month, day separated by slashes or hyphens. The final column in our data set is in the default format, so we could convert it without supplying a custom format. The following is a list of date formatting codes:
+
+```{r}
+# %d -> Day
+# %m -> Numeric Month 
+# %b -> Abbreviated Month
+# %B -> Full Month
+# %y -> 2-digit year
+# %Y -> 4-digit year
+```
+
+The dates we've printed to the screen might still look like character strings, but internally they are stored as numbers. (Note that the type has changed to "double" and the class to "Date"). R stores dates internally as the number of days since the first day of 1970, with dates before 1970 being stored as negative numbers. You can check the underlying numeric representation of a date with as.numeric().
+
+```{r}
+as.numeric(first_col)
+```
+
+
+Some other useful date and time relation functions in base R include weekdays() and months() to extract the day of the week and month from a Date object, Sys.Date() to check the current date and date() to check the current date and time
+
+```{r}
+weekdays(first_col)
+
+months(first_col)
+
+Sys.Date()
+
+date()
+```
+
+
+## Date-Time Conversion
+
+
+The as.Date() function is a basic tool for dealing with dates, but it does not handle data that includes both dates and times. Date/time data includes the date as well as finer-grained time information like hours, minutes and seconds. R contains a couple of data classes, 'POSIXct' and'POSIXlt' to deal with date/time data. POSIXct encodes a date/time as the number of seconds since the first day of 1970. POSIXlt stores date/time information as a list with items like year, month, day, hour, minute and second. You can convert dates in string format to POSIX date types using as.POSIXct() and as.POSIXlt().
+
+
+```{r}
+third_col_ct <- as.POSIXct(dates$date_time,                 # Date/time to convert
+                          format = "%a %b %d %H:%M:%S %Y")  # Date/time format
+
+third_col_ct                                                # Check dates
+
+typeof(third_col_ct)                                        # Check type
+```
+
+
+
+```{r}
+third_col_lt <- as.POSIXlt(dates$date_time,                 # Date/time to convert
+                          format = "%a %b %d %H:%M:%S %Y")  # Date/time format*
+
+third_col_lt                                                # Check dates
+
+typeof(third_col_lt)                                        # Check type
+```
+
+Note: check the documents for the strftime function with ?strftime for more information on date/time formatting codes.
+
+Both POSIXct and POSIXlt support subtraction to get the amount of time between two dates in days.
+
+
+```{r}
+third_col_ct[2]-third_col_ct[1]
+```
+
+
+You can extract various features of a date/time encoded as POSIXlt.
+
+```{r}
+third_col_lt$year   # years
+
+third_col_lt$mon    # numeric month
+
+third_col_lt$wday   # day of the week
+
+third_col_lt$mday   # day of the month
+
+third_col_lt$yday   # day of the year
+
+third_col_lt$hour   # hours
+
+third_col_lt$min    # minutes
+
+third_col_lt$sec    # seconds
+```
+
+
+## Lubridate
+
+As with many tasks in data analysis in R, addon packages can make your life easier. Lubridate is an R package designed to make it easy to work with dates, which contains a variety of functions that operate on dates stored in the POSIXct and POSIXlt formats.
+
+Let's load lubridate and then go through some if its functions.
+
+```{r}
+library(lubridate)
+```
+
+One of the most useful aspects of lubridate is that it includes a variety of date/time parsing functions that let you convert string dates to date objects. The names of these functions correspond to the formats of the dates you are trying to convert. For instance the ymd() function converts strings in year-month-day format to dates. Similarly ymd_hms() converts full date/time strings in the common year, month, day, hour, minute, second format into date time objects. Let's use some of the Lubridate functions to convert each column from the dates data to date format. First let's remind ourselves of the format of each column.
+
+```{r}
+head(dates, 1)
+```
+
+```{r}
+# Convert each column with the appopriate lubridate parsing function
+
+col1_dates <- mdy(dates[,1])
+
+col2_dates <- dmy(dates[,2])
+
+# The date_time column is pretty messy so it can't
+# Be parsed with a pre-made lubridate funtion.
+# In this case use lubridate's parse_date_time() with the full date format
+col3_dates <- parse_date_time(dates[,3],
+                             orders = "%a %b %d %H:%M:%S %Y")
+
+col4_dates <- ymd(dates[,4])
+
+col1_dates
+col2_dates
+col3_dates
+col4_dates
+```
+
+
+Once the data is loaded in a date format that lubridate understands, it has a variety of other functions that can extract useful information from the dates. In the following several code cells we'll look at a variety of functions lubridate offers as well as their outputs.
+
+```{r}
+am(col3_dates)    # Check if date/time occurred in am(TRUE) or pm(FALSE)
+```
+
+
+
+```{r}
+decimal_date(col3_dates)   # Get decimal version of date/time in years
+```
+
+
+
+```{r}
+leap_year(col3_dates)   # Is it a leap year?
+```
+
+
+```{r}
+round_date(col3_dates, 
+          unit = c("year"))  # Round date/time based on specified unit
+```
+
+```{r}
+ceiling_date(col3_dates,
+          unit = c("year"))  # Round date/time up based on specified unit
+```
+
+```{r}
+hour(col3_dates)        # Get hours
+```
+
+```{r}
+minute(col3_dates)     # Get minutes
+```
+
+```{r}
+second(col3_dates)     # get seconds
+```
+
+```{r}
+month(col3_dates)      # Get month
+```
+
+```{r}
+year(col3_dates)       # get yea
+```
+
+```{r}
+mday(col3_dates)      # Get day of month
+```
+
+```{r}
+wday(col3_dates)      # Get day of week
+```
+
+```{r}
+yday(col3_dates)      # Get day of year
+```
+
+```{r}
+now()                   # Get the current date/time
+```
+
+
+##References:
+
+https://www.kaggle.com/ravi72munde/uber-lyft-cab-prices#cab_rides.csv
+
+https://www.kaggle.com/hamelg/lesson-16-dates
+

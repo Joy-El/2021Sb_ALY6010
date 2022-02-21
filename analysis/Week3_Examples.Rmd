@@ -1,0 +1,275 @@
+---
+title: "Week2 Examples"
+author: "Joy-El Talbot"
+date: "5/31/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# R-markdown/Knitr alternative to setwd()
+# MUST be run in this first chunk called "setup"
+knitr::opts_knit$set(root.dir = "C:/Users/joyel/Documents/Roux/ALY6010/2021Sb_ALY6010/") # TODO change to your project directory
+
+# suppress scientific notation
+options(scipen = 99)
+
+# suppress loading strings as factors
+options(stringsAsFactors = FALSE)
+```
+
+## Purpose
+Show how we can work with confidence intervals in R.
+
+*Adapted from D. Koloski's ALY6010.23545-DKExamples-Week1.R*
+
+*Includes problems from Bluman's Elementary Statistics: a step-by-step approach, 10th edition*
+
+
+```{r libraries}
+library(ggplot2)
+library(tidyr)
+```
+
+```{r constants}
+RESULTS = "results/week2_examples/"
+dir.create(RESULTS)
+```
+
+```{r helperFunctions}
+# hat-tip to J.R. for their answer on Stackoverflow: https://stackoverflow.com/questions/27898931/how-to-shade-a-graph-using-curve-in-r
+colorArea <- function(from, to, density, ..., col="blue", dens=NULL){
+    y_seq <- seq(from, to, length.out=500)
+    d <- c(0, density(y_seq, ...), 0)
+    polygon(c(from, y_seq, to), d, col=col, density=dens)
+}
+
+```
+
+```{r loadData}
+
+```
+
+### Normal vs t Distributions in R
+```{r normalVStDistribution}
+# building the data
+x <- seq(-4, 4, by = 0.1)
+z_dist <- dnorm(x)
+t_df1_dist <- dt(x, df=1)
+t_df5_dist <- dt(x, df=5)
+t_df10_dist <- dt(x, df=10)
+t_df100_dist <- dt(x, df=100)
+
+dists <- data.frame(cbind(x, z_dist, t_df1_dist, t_df5_dist, t_df10_dist, t_df100_dist))
+
+(ggplot(dists)
+  + aes(x = x)
+  + geom_line(aes(y = z_dist), col="magenta", size=2)
+  + geom_line(aes(y = t_df1_dist), col="grey80", size=1.2)
+  + geom_line(aes(y = t_df5_dist), col="grey60", size=1.2)
+  + geom_line(aes(y = t_df10_dist), col="grey40", size=1)
+  + geom_line(aes(y = t_df100_dist), col="grey20", size=1)
+  + theme_bw()
+  + ggtitle("Comparing Z and t distributions")
+  + scale_x_continuous("Z or t values")
+  + scale_y_continuous("Probability Density")
+)
+
+ggsave(filename = paste0(RESULTS,"DensityCurves_zt.png"))
+```
+
+### Chi-square Distributions in R
+```{r normalVSchi-squareDistribution}
+# building the data
+x <- seq(0, 30, by = 0.1)
+chi_df1_dist <- dchisq(x, df=1)
+chi_df4_dist <- dchisq(x, df=4)
+chi_df9_dist <- dchisq(x, df=9)
+chi_df15_dist <- dchisq(x, df=15)
+
+dists <- data.frame(cbind(x, chi_df1_dist, chi_df4_dist, chi_df9_dist, chi_df15_dist))
+
+(ggplot(dists)
+  + aes(x = x)
+  + geom_line(aes(y = chi_df1_dist), col="grey80", size=1.2)
+  + geom_line(aes(y = chi_df4_dist), col="grey60", size=1.2)
+  + geom_line(aes(y = chi_df9_dist), col="grey40", size=1.2)
+  + geom_line(aes(y = chi_df15_dist), col="grey20", size=1.2)
+  + theme_bw()
+  + ggtitle("Chi-square distributions")
+  + scale_x_continuous("Chi-square values")
+  + scale_y_continuous("Probability Density")
+  + coord_cartesian(ylim=c(0,0.25))
+)
+
+ggsave(filename = paste0(RESULTS,"DensityCurves_zchisq.png"))
+```
+
+
+### Calculating critical values
+Used to determine the confidence interval of a sample estimator's accuracy in estimating the population parameter.
+
+
+#### With the normal distribution
+
+  1. Estimating population mean when population standard deviation (sigma) is known OR estimated from a past study
+  2. Identifying needed sample size to get a certain precision in the estimate of population mean when population standard deviation is known
+  3. Estimating population proportion (requires traits of a binomial experiment)
+  
+```{r criticalValues_norm_mean}
+# example 7-1
+# days to sell an Aveo (with 95% confidence interval) given random sample of 50 cars took a mean time of 54 days to sell and population standard deviation is 6.0 days
+confidenceLevel <- 0.95
+n <- 50
+xbar <- 54
+sigma <- 6.0
+
+alpha <- 1 - confidenceLevel
+
+# why mean = 0 and sd = 1?
+critVal <- qnorm(p = alpha/2, mean = 0, sd = 1, lower.tail = FALSE)
+print(round(critVal, 2))
+
+confidenceInterval_lo <- xbar - critVal * (sigma / sqrt(n))
+confidenceInterval_hi <- xbar + critVal * (sigma / sqrt(n))
+print(paste0("Confidence Interval: ", round(confidenceInterval_lo, 1),
+            " < mu < ", round(confidenceInterval_hi, 1)))
+```
+
+```{r criticalValues_norm_samplesize}
+# example 7-4
+# Sample size needed if 
+#  - E (Margin of Error) is +/- 2 cars per day
+#  - Degree of Confidence (or Confidence Level) is 99%
+#  - Standard Dev (from previous study using as population std dev) is 4.2
+
+confidenceLevel <- 0.99
+alpha <- 1 - confidenceLevel
+E <- 2
+sigma <- 4.2
+critVal <- qnorm(p = alpha/2, lower.tail = FALSE)
+
+n <- (critVal*sigma / E)^2
+
+# why did we use ceiling() instead of round()?
+print(paste0("Researcher needs ", ceiling(n), " days of data"))
+
+```
+
+```{r criticalValues_norm_proportion}
+# example 7-9
+# 90% confidence interval of true proportion of students who paid education with student loans
+#  - 1404 surveyed
+#  -  of those, 323 paid for education with student loans
+
+n <- 1404
+phat <- 323 / n
+qhat <- 1 - phat
+
+confidenceLevel <- 0.90
+alpha <- 1 - confidenceLevel
+critVal <- qnorm(p = alpha/2, lower.tail = FALSE)
+
+confidenceInterval_lo <- phat - critVal * sqrt(phat * qhat / n)
+confidenceInterval_hi <- phat + critVal * sqrt(phat * qhat / n)
+
+print(paste0("Confidence Interval: ", round(confidenceInterval_lo * 100, 1),
+            "% < p < ", round(confidenceInterval_hi * 100, 1), "%"))
+```
+
+#### With the t distribution
+
+  1. Estimating population mean when population standard deviation (sigma) UNKNOWN
+  
+```{r criticalValues_t_mean}
+# example 7-7
+# 99% CI for mean home fires started by candles each year
+# GIVEN data below - a random sample of number of home fires started by candles for the past several years
+
+x <- c(5460,5900,6090,6310,7160,8440,9930)
+
+confidenceLevel <- 0.99
+n <- length(x)
+xbar <- mean(x)
+s <- sd(x)
+
+alpha <- 1 - confidenceLevel
+
+critVal <- qt(p = alpha/2, df = n-1, lower.tail = FALSE)
+
+confidenceInterval_lo <- xbar - critVal * (s / sqrt(n))
+confidenceInterval_hi <- xbar + critVal * (s / sqrt(n))
+print(paste0("Confidence Interval: ", round(confidenceInterval_lo, 1),
+            " < mu < ", round(confidenceInterval_hi, 1)))
+```
+
+#### With the chi-square distribution
+
+  1. Estimating population variance or standard deviation
+
+```{r criticalValues_chisq}
+# example 7-13
+# find left & right critical values if confidence interval is 90% and sample size is 25
+confidenceLevel <- 0.9
+n <- 25
+
+alpha <- 1 - confidenceLevel
+
+critVal_right <- qchisq(p = alpha/2,
+                       df = n-1,
+                       lower.tail = FALSE)
+
+critVal_left <- qchisq(p = alpha/2,
+                       df = n-1,
+                       lower.tail = TRUE)
+
+results <- data.frame("Critical Value(left)" = round(critVal_left, 3),
+                      "Critical Value(right)" = round(critVal_right, 3))
+print(results)
+
+```
+
+
+```{r criticalValues_variance_chisq}
+# example 7-14
+# 95% CI of variance for age
+#  - assume age variable is normally distributed (WHY is this important?)
+#  - given study of 30 women (presumably with osteoporosis) finding a std dev of 5.2 years
+
+confidenceLevel <- 0.95
+n <- 30
+
+alpha <- 1 - confidenceLevel
+
+s <- 5.2
+s2 <- s^2 # sample variance
+
+critVal_right <- qchisq(p = alpha/2,
+                       df = n-1,
+                       lower.tail = FALSE)
+
+critVal_left <- qchisq(p = alpha/2,
+                       df = n-1,
+                       lower.tail = TRUE)
+
+confidenceInterval_lo <- ((n - 1)*s^2) / critVal_right
+confidenceInterval_hi <- ((n - 1)*s^2) / critVal_left
+
+print(paste0("Confidence Interval: ", round(confidenceInterval_lo, 1),
+            " < sigma-squared < ", round(confidenceInterval_hi, 1)))
+
+print(paste0("Confidence Interval: ", round(sqrt(confidenceInterval_lo), 1),
+            " < sigma < ", round(sqrt(confidenceInterval_hi), 1)))
+```
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,244 @@
+---
+title: "NOAA Rainfall"
+author: "Joy-El Talbot"
+date: "6/3/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# TODO change path to your working directory
+WORKINGDIR <- "C:/Users/joyel/Documents/Roux/ALY6010/2021Sb_ALY6010/"
+
+# R-markdown/Knitr alternative to setwd()
+# MUST be run in this first chunk called "setup"
+knitr::opts_knit$set(root.dir = WORKINGDIR) # sets working dir when Knitting
+
+# TODO if coding live as you build this document copy & paste the setwd() command into your console.
+setwd(WORKINGDIR) # sets working dir for R studio instance IF copied directly into console
+
+# suppress scientific notation
+options(scipen = 99)
+
+# suppress loading strings as factors
+options(stringsAsFactors = FALSE)
+```
+
+## Purpose
+Quickly explore a new data set.
+
+### Table of Contents
+  
+  1. Purpose
+  2. Project Setup
+  3. TODO add more "chapters" (use double-hash to label in text ##)
+  
+### Appendices
+  
+  1. Output Tables
+  2. Output ggplot Graphs
+  3. Output base-R Graphs
+
+
+## Project Setup
+
+### Directory Setup
+```{r createProjectDirectory, eval=FALSE}
+# TODO set eval=TRUE in line above to RUN this code
+# TODO update as you desire for your directory
+# TODO manually move data sources into the data/ folder
+dir.create("data/")
+dir.create("src/")
+dir.create("analysis/")
+dir.create("results/")
+```
+
+### Load Libaries
+```{r libraries}
+# TODO uncomment those you use in your subsequent code
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(purrr) # part of tidyverse to get access to the map() function
+```
+
+### Define Constants
+```{r constants}
+# input source
+DATADIR <- "data/"
+
+# build results directory
+# TODO name your analysis with the ANALYSISNAME constant
+ANALYSISNAME <- "noaa_rainfall"  # NO spaces!
+
+# TODO choose date vs. datetime label for your output folder
+#DATESTAMP <- format(Sys.time(), "%Y-%m-%d")
+DATESTAMP <- format(Sys.time(), "%Y-%m-%d-%H%M%S") # includes hours, minutes, and seconds if running multiple times in a day
+RESULTSDIR <- paste0("results/",DATESTAMP,"-",ANALYSISNAME,"-results/")
+dir.create(RESULTSDIR)
+GRAPHDIR <- paste0(RESULTSDIR, "graphs/")
+dir.create(GRAPHDIR)
+TABLEDIR <- paste0(RESULTSDIR, "tables/")
+dir.create(TABLEDIR)
+
+# define default plot size
+PLOT_WIDTH <- 5
+PLOT_HEIGHT <- 5
+PLOT_UNITS <- "in"
+PLOT_RES <- 96 # required for png() device when units aren't "px"
+```
+
+### Load data
+```{r loadData}
+# TODO load your particular data (an example is below)
+#checkouts <- read.csv(paste0(DATADIR,"sampled_dailyCheckouts.csv"),
+#                      stringsAsFactors = FALSE)
+rain <- utils::read.csv(paste0(DATADIR, "multicity_rain_noaa.csv"),
+                        stringsAsFactors = FALSE)
+```
+
+## Analysis
+
+### Initial Viewing
+```{r exploration}
+head(rain)
+rain[0:10,]
+rain[2000:2010,]
+summary(rain)
+unique(rain$STATION_NAME)
+```
+
+### Data Cleanup
+
+  1. Convert 999.99 HPCP values to NA
+  2. Summarize to daily rainfall
+
+```{r datacleanup}
+clean_rain <- rain
+
+clean_rain$HPCP[clean_rain$HPCP == 999.99] <- NA
+
+summary(clean_rain)
+
+clean_rain <- clean_rain[!is.na(clean_rain$HPCP), ]
+
+summary(clean_rain)
+
+clean_rain$day <- as.character(map(strsplit(clean_rain$DATE, " "), 1))
+
+rain_summary <- clean_rain %>%
+  group_by(day) %>%
+  dplyr::summarise(dailyRain = sum(HPCP))
+
+rain_summary$year <- substr(rain_summary$day, 0, 4)
+```
+
+```{r plotByyear}
+df_plot <- rain_summary %>%
+  group_by(year) %>%
+  dplyr::summarise(averageDailyRain = mean(dailyRain)) %>%
+  arrange(averageDailyRain)
+
+(ggplot(df_plot)
+ + aes(x = as.character(year), y = averageDailyRain)
+ + geom_bar(stat="identity")
+ + ggtitle("a plot")
+ 
+ )
+# TODO order by ascending ave daily rain
+# TODO Does order of piping affect output
+# TODO coord_cartesian vs xlim zoom
+# TODO boxplot with jitter overlay
+# TODO scatter for rain data (how to subset by year)
+```
+
+
+TODO add rounds of "Chapters" ##, "Sub-chapters" ###, "Sub-sub-chapters" ####, etc AND code blocks to build out your analysis.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Appendix - Examples for Outputting code
+TODO Feel free to remove if desired
+
+### Output Tables
+```{r outputTables, eval=FALSE}
+byYear <- checkouts %>%
+  group_by(CheckoutYear) %>%
+  summarise(Count = n())
+print(byYear)
+
+write.csv(byYear,
+          file = paste0(TABLEDIR,"Checkouts_by_year.csv"),
+          row.names = FALSE) # to suppress row.names of 1, 2, 3...
+```
+
+  + `write.csv` ensures formatting of output matches CSV file standards
+  + `write.table` gives more flexiblity but usually not needed
+  + Other commands for writing JSON, XML, and other formats can be found with a quick search (and usually a library() package).
+
+
+### Output Graph Images
+#### With ggplot2
+```{r outputGraphs_ggplot, eval=FALSE}
+# wrap in parentheses so the "+" signs are a the left, making it easier to comment out lines
+(ggplot(checkouts)
++ aes(x = factor(CheckoutYear))  # adding factor() so these names become x-axis label names
++ geom_bar()
++ ggtitle("Patrons checkout fewer books in 2020")
++ labs(subtitle = "Seattle Public Library - Physical Book Checkouts")
++ scale_y_continuous("Physical Books Checked Out\n(2% sample)")
+#+ scale_x_discrete("") # no label
++ scale_x_discrete("Year")
+)
+
+# saves the last image you plotted to file by default
+# OTHERWISE you can pass a ggplot object to the plot= argument
+ggsave(filename = paste0(GRAPHDIR,"ggplot_CheckoutsByYear.png"),
+       width = PLOT_WIDTH*0.9, # add multipliers to make image a little bigger or smaller as needed (if needed)
+       height = PLOT_HEIGHT*1.1,
+       units = PLOT_UNITS)
+```
+
+  + Graph first, then save after (similar to table output workflow)
+  + `ggsave()` will write the last plot to file
+  + Setting constants for plot size makes it easy to keep images of consistent size
+  + Nudge size larger or smaller with a size multiplier to the PLOT_WIDTH or PLOT_HEIGHT constants
+
+
+#### With base R plots
+```{r outputGraphs_basePlot, eval=FALSE}
+# open output file
+png(filename = paste0(GRAPHDIR,"basePlot_CheckoutsByYear.png"),
+    width = PLOT_WIDTH,
+    height = PLOT_HEIGHT,
+    units = PLOT_UNITS,
+    res = PLOT_RES)
+
+# create plot
+hist(x = checkouts$CheckoutYear,
+     main = "Patrons checkout fewer books in 2020",
+     sub = "Seattle Public Library - Physical Book Checkouts",
+     xlab = "Year",
+     ylab = "Physical Books Checked Out\n(2% sample)")
+      
+# close the output device
+dev.off()
+```
+
+  + Sandwich file-saving code around the graph-building code
+  + If your graph building errors out, you may leave "devices" open 
+    + Avoid by testing graph code first (without opening a device)
+    + Fix by repeatedly run dev.off() in the console

@@ -1,0 +1,252 @@
+---
+title: "Week 3 R Practice"
+author: "Anubhav Saha"
+date: "06/10/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+### Introduction
+
+Hypothesis testing is the use of statistics to determine the probability that a given hypothesis is true. The usual process of hypothesis testing consists of four steps:
+
+1. Formulate the null hypothesis H0 (commonly, that the observations are the result of pure chance) and the alternative hypothesis Ha (commonly, that the observations show a real effect combined with a component of chance variation).
+
+2. Identify a test statistic that can be used to assess the truth of the null hypothesis.
+
+3. Compute the P-value, which is the probability that a test statistic at least as significant as the one observed would be obtained assuming that the null hypothesis were true. The smaller the P-value, the stronger the evidence against the null hypothesis.
+
+4. Compare the p-value to an acceptable significance value alpha (sometimes called an alpha value). If p<=alpha, that the observed effect is statistically significant, the null hypothesis is ruled out, and the alternative hypothesis is valid.
+
+
+
+#### Load the MASS, datasets and other required packages in R using the library function
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS) #Loading the package MASS
+library(datasets)
+library(dplyr)
+library(ggpubr)
+```
+
+
+### One-sample t-test
+
+Use the “chem” dataset to answer the question, “is the flour production company producing whole meal flour with greater than 1 part per million copper in it?”
+
+
+#### code:
+
+```{r}
+chem #To glance our checm dataset
+str(chem) #To get its structure
+View(chem) #To view our dataset on a new window
+MASS::chem #same as chem
+?chem #To get help on our dataset
+summary(chem) #Gives the five number summary of our dataset
+
+
+hist(chem, 
+     main="copper in wholemeal flour, in parts per million.", 
+     xlab="Copper (ppm)", 
+     border="light blue", 
+     col="pink", 
+     las=1, 
+     breaks=5) #plots the histogram with given parameters
+
+```
+
+#### Step 1: Formulate Null and alternative Hypothesis
+
+As we need to find out if there is > 1ppm of copper present, we'll use a one tailed t test
+
+Null hypothesis (H0) : The mean value of copper present is less than or equal to one, i.e. mu<=1
+
+Alternative hypothesis (H1) : The mean value of copper present is greater than one, i.e. mu>1 (one tailed test)
+
+
+#### Step 2: Identify the test statistic
+
+Since n < 30, we will use the t statistic instead of the z statistic.
+
+```{r}
+?t.test
+```
+
+Performs one and two sample t-tests on vectors of data.
+
+Default arguments:
+t.test(x, y = NULL,
+       alternative = c("two.sided", "less", "greater"),
+       mu = 0, paired = FALSE, var.equal = FALSE,
+       conf.level = 0.95, ...)
+
+
+#### Step 3: Compute the P-value
+
+
+```{r}
+ttest_chem <- t.test(chem,
+                     alternative="greater",
+                     mu = 1,
+                     conf.level=0.99)
+ttest_chem
+```
+
+```{r}
+attributes(ttest_chem)
+```
+```{r}
+ttest_chem$p.value
+```
+```{r}
+ttest_chem$conf.int
+```
+
+
+
+#### Step 4: Compare the p-value to alpha
+
+
+Since p-value < alpha (0.01), we can reject the NULL hypothesis and adopt our alternative hypothesis that mu > 1, i.e., the flour production company is producing whole meal flour with greater than 1 part per million copper in it.
+
+
+
+
+### Two-sample t-test 
+
+Use the “cats” dataset to answer the question, “do male and female cat samples have the same body weight?”
+
+#### code:
+
+```{r}
+?cats
+View(cats)
+male <- subset(cats, subset=(cats$Sex=="M")) # used subset function to get separate vectors for male and female cat body weight
+female <- subset(cats, subset=(cats$Sex=="F"))
+
+ggplot(male,aes(x=Bwt)) +
+    geom_histogram(aes(y=..density..),binwidth=0.25,colour="black", fill="light grey") +
+        geom_density(alpha=.2, fill="red")
+ggplot(female,aes(x=Bwt)) +
+    geom_histogram(aes(y=..density..),binwidth=0.15,colour="black", fill="light grey") +
+        geom_density(alpha=.2, fill="blue")
+
+male_sample <- sample(male, size = 29, replace = TRUE) #Taking sample of 29 values so that n<30 to satisfy our t test constraints
+female_sample <- sample(female, size = 29, replace = TRUE)
+
+```
+
+As we need to find out if the bwt of male cats and female cats are same or not, we'll use a two tailed t test
+
+Null hypothesis (H0) is as follows: Male and female cat samples have the same body weight, i.e difference of mean (mud) = 0
+
+Alternative hypothesis (H1) is as follows:  Male and female cat samples have unequal body weight, i.e difference of mean (mud) != 0
+
+
+
+#### Two sample unpaired t test with unequal variances
+
+```{r}
+ttest_unpaired = t.test(male$Bwt, female$Bwt,
+                        var.equal = FALSE,
+                        paired = FALSE)
+ttest_unpaired
+```
+
+**Intepretation of the results**
+
+
+Since p-value < alpha (0.05), we can reject the NULL hypothesis and adopt our alternative hypothesis that mud!=0, i.e., male and female cats do not have same body weights.
+
+
+
+###  Paired t-test 
+
+Use the “shoes” dataset to answer the question, “did material A wear better than material B?”
+
+
+#### code
+
+
+```{r}
+?shoes
+shoes
+
+shoe <- data.frame(shoes)
+ggplot(shoe,aes(x=A)) +
+    geom_histogram(aes(y=..density..),binwidth=1,colour="black", fill="light grey") +
+        geom_density(alpha=.2, fill="red")
+
+ggplot(shoe,aes(x=B)) +
+    geom_histogram(aes(y=..density..),binwidth=1,colour="black", fill="light grey") +
+        geom_density(alpha=.2, fill="blue")
+
+```
+
+
+As we need to find out if the material A wears better than material B, we'll use a one - tailed two sampled paired t test
+
+Null hypothesis (H0) is as follows: Shoe of materal A wears worse or equal to the shoe of material B 
+Alternative hypothesis (H1) is as follows:  Shoe of materal A wears better than shoe of material B.
+
+
+#### two sample paired t test
+
+```{r}
+paired = t.test(shoes$A, shoes$B,
+                paired=TRUE,
+                alternative="greater")
+paired
+```
+
+**Intepretation of the results**
+
+Since p-value > alpha (0.05), we fail to reject the NULL hypothesis i.e.at 95% confidence level, there is not enough evidence to deny that Shoe of materal A wears worse or equal to the shoe of material B 
+
+
+
+### Independent two sample t-test
+
+Link to the dataset lung capacity https://drive.google.com/file/d/0BxQfpNgXuWoIWUdZV1ZTc2ZscnM/edit?resourcekey=0-gqXT7Re2eUS2JGt_w1y4vA
+
+
+```{r}
+Data <- read.csv(file.choose())
+View(Data)
+```
+
+```{r}
+names(Data)
+```
+
+```{r}
+boxplot(Data$LungCap ~ Data$Smoke)
+```
+
+Ho : Mean Lung capacity of smokers = that of non smokers i.e. difference in mean = 0
+Ha : Mean Lung capacity of smokers != that of non smokers i.e. difference in mean != 0
+
+Based on the boxplot, non smokers seem to have a higher variance.
+
+Let's confirm that by getting the variance
+
+
+```{r}
+var(Data$LungCap[Data$Smoke=="yes"])
+var(Data$LungCap[Data$Smoke=="no"])
+```
+
+
+#### Two sided t test
+
+```{r}
+t.test(Data$LungCap ~ Data$Smoke)
+```
+
+If we wanna test for difference in mean more than 0, we can provide that argument during the t test
+
+
+

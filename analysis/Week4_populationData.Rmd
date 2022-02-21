@@ -1,0 +1,111 @@
+---
+title: "Field of Flowers - Generate Population Data"
+author: "Joy-El Talbot"
+date: "6/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# TODO change path to your working directory
+WORKINGDIR <- "C:/Users/joyel/Documents/Roux/ALY6010/2021Sb_ALY6010/"
+
+# R-markdown/Knitr alternative to setwd()
+# MUST be run in this first chunk called "setup"
+knitr::opts_knit$set(root.dir = WORKINGDIR) # sets working dir when Knitting
+
+# TODO if coding live as you build this document copy & paste the setwd() command into your console.
+setwd(WORKINGDIR) # sets working dir for R studio instance IF copied directly into console
+
+# suppress scientific notation
+options(scipen = 99)
+
+# suppress loading strings as factors
+options(stringsAsFactors = FALSE)
+
+# set seed for randomizer
+set.seed(4537)
+```
+
+## Purpose
+Generate populations of dummy data for the week 4 group exercise. 
+
+### Scenario
+
+We suspect that a central field is the source of the spread of an invasive species of flower that happens to be purple. Unfortunately, at first glance, it looks much like a native species (also purple). We want to determine if nearby fields likely include the invasive species. 
+
+We have a crew of eager grade school students willing to tally purple vs non-purple flowers that they see, but can’t reliably score for the invasive species beyond that. Using data from a remote field (unlikely to have been invaded) and one of the fields of concern, determine if the field is likely invaded.
+
+
+### Table of Contents
+  
+  1. Purpose
+    a. Scenario
+  2. Project Setup
+  3. Data Creation
+  4. Data Sampling
+  
+## Project Setup
+
+### Define Constants
+```{r constants}
+# input source
+DATADIR <- "data/"
+
+# build results directory
+# TODO name your analysis with the ANALYSISNAME constant
+ANALYSISNAME <- "week4_fieldsOfFlowers"  # NO spaces!
+
+DATESTAMP <- format(Sys.time(), "%Y-%m-%d")
+RESULTSDIR <- paste0("results/",DATESTAMP,"-",ANALYSISNAME,"-results/")
+dir.create(RESULTSDIR)
+
+```
+## Data Creation
+Creating a field of flowers, following certain parameters (defined frequencies, means, and standard deviations). Here's an example of what the field contains.
+
+```{r createData, echo=FALSE}
+# set the core parameters for the population
+flowerColors <- c("purple", # native
+                  "purple", # invasive
+                  "yellow", "white")
+
+remoteField <- sample(x = flowerColors,
+                      size = 500, 
+                      prob = c(0.3, 0, 0.4, 0.3),
+                      replace = TRUE)
+nwField <- sample(x = flowerColors,
+                      size = 500, 
+                      prob = c(0.3, 0.05, 0.4, 0.3),
+                      replace = TRUE)
+sField <- sample(x = flowerColors,
+                      size = 500, 
+                      prob = c(0.3, 0.1, 0.4, 0.3),
+                      replace = TRUE)
+eField <- sample(x = flowerColors,
+                      size = 500, 
+                      prob = c(0.3, 0.15, 0.4, 0.3),
+                      replace = TRUE)
+
+# now export the data as tables
+group1 <- cbind(remoteField, nwField)
+head(group1)
+write.csv(group1,
+          file = paste0(RESULTSDIR, "field_sample_1.csv"),
+          row.names = FALSE)
+
+group2 <- cbind(remoteField, sField)
+head(group2)
+write.csv(group1,
+          file = paste0(RESULTSDIR, "field_sample_2.csv"),
+          row.names = FALSE)
+
+group3 <- cbind(remoteField, eField)
+head(group3)
+write.csv(group3,
+          file = paste0(RESULTSDIR, "field_sample_3.csv"),
+          row.names = FALSE)
+```
+
+

@@ -1,0 +1,126 @@
+---
+title: "Teacher File - R Practice Week 3"
+author: "Joy-El Talbot"
+date: "6/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# TODO change path to your working directory
+WORKINGDIR <- "C:/Users/joyel/Documents/Roux/Data/seattle_library/"
+
+# R-markdown/Knitr alternative to setwd()
+# MUST be run in this first chunk called "setup"
+knitr::opts_knit$set(root.dir = WORKINGDIR) # sets working dir when Knitting
+
+# TODO if coding live as you build this document copy & paste the setwd() command into your console.
+setwd(WORKINGDIR) # sets working dir for R studio instance IF copied directly into console
+
+# suppress scientific notation
+options(scipen = 99)
+
+# suppress loading strings as factors
+options(stringsAsFactors = FALSE)
+```
+
+## Purpose
+Prepare some population-level statistics for prompts in the Module 3 R Practice.
+
+### Table of Contents
+  
+  1. Purpose
+  2. Project Setup
+  3. Population Statistics
+
+## Project Setup
+
+### Directory Setup
+```{r createProjectDirectory, eval=TRUE}
+dir.create("results/")
+```
+
+### Load Libaries
+```{r libraries}
+library(dplyr)
+library(purrr)
+```
+
+### Define Constants
+```{r constants}
+# input source
+DATADIR <- "data/"
+
+# build results directory
+ANALYSISNAME <- "ALY6010_Week3_RPractice"  # NO spaces!
+
+DATESTAMP <- format(Sys.time(), "%Y-%m-%d")
+RESULTSDIR <- paste0("results/",DATESTAMP,"-",ANALYSISNAME,"-results/")
+
+# define default plot size
+PLOT_WIDTH <- 5
+PLOT_HEIGHT <- 5
+PLOT_UNITS <- "in"
+PLOT_RES <- 96 # required for png() device when units aren't "px"
+```
+
+### Load data
+```{r loadData}
+all2019 <- read.csv("temp_daily_2019.csv",
+                    header = TRUE,
+                    stringsAsFactors = FALSE)
+```
+
+## Population Statistics
+
+### Population mean for weekly checkouts
+Going up to weekly to get away from near-zero values.
+
+```{r getWeeklyCheckouts}
+# reduce data to only needed columns (because we have 5,703,704 records for 2019)
+names(all2019)
+cleaned2019 <- all2019[, c("ID", "CheckoutDateTime")]
+rm(all2019)
+head(cleaned2019)
+
+# extract Date object from CheckoutDateTime
+cleaned2019$date <- strptime(cleaned2019$CheckoutDateTime, 
+                             format = "%m/%d/%Y %I:%M:%S %p")
+
+# create new field for the week number in the year (01 - 53) 
+cleaned2019$week <- strftime(cleaned2019$date, format = "%V")
+
+head(cleaned2019) # note the POSIXlt date might not render as expected, that's ok.
+
+# get weekly checkouts
+checkoutsByWeek <- cleaned2019 %>%
+  group_by(week) %>%
+  summarise(weeklyCheckouts = n()) 
+
+head(checkoutsByWeek)
+```
+```{r popMean_weeklyCheckouts}
+print(paste0("Average weekly checkouts in 2019: ",
+             round(mean(checkoutsByWeek$weeklyCheckouts))))
+```
+Wow! That is a lot of checkouts in a week. Let's try daily instead.
+
+### Population mean for daily checkouts
+Going down to daily checkouts because weekly is HUGE!
+
+```{r getDailyCheckouts}
+# create new field for the day
+cleaned2019$day <- strftime(cleaned2019$date, format = "%m/%d/%Y")
+
+# get daily checkouts
+checkoutsByDay <- cleaned2019 %>%
+  group_by(day) %>%
+  summarise(dailyCheckouts = n()) 
+
+head(checkoutsByDay)
+```
+```{r popMean_dailyCheckouts}
+print(paste0("Average daily checkouts in 2019: ",
+             round(mean(checkoutsByDay$dailyCheckouts))))
+```

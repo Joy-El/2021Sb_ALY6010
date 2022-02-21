@@ -1,0 +1,172 @@
+---
+title: "Week 4 R Practice"
+author: "Anubhav Saha"
+date: "06/16/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+### Introduction
+
+Quick recap of the four steps of Hypothesis testing:
+
+1. Formulate hypotheses
+
+2. Identify a test statistic
+
+3. Compute the P-value. The smaller the P-value, the stronger the evidence against the null hypothesis.
+
+4. Compare the p-value with alpha If p<=alpha, the null hypothesis is ruled out.
+
+
+#### Load the MASS, datasets and other required packages in R using the library function
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS) #Loading the package MASS
+library(datasets)
+library(dplyr)
+library(ggpubr)
+```
+
+
+
+### Two-sample t-test to test difference in means
+
+Use the “cats” dataset to answer the question, “do male and female cat samples have the same body weight?”
+
+#### code:
+
+```{r}
+?cats
+View(cats)
+male <- subset(cats, subset=(cats$Sex=="M")) # used subset function to get separate vectors for male and female cat body weight
+female <- subset(cats, subset=(cats$Sex=="F"))
+
+ggplot(male,aes(x=Bwt)) +
+    geom_histogram(aes(y=..density..),binwidth=0.25,colour="black", fill="light grey") +
+        geom_density(alpha=.2, fill="red")
+ggplot(female,aes(x=Bwt)) +
+    geom_histogram(aes(y=..density..),binwidth=0.15,colour="black", fill="light grey") +
+        geom_density(alpha=.2, fill="blue")
+
+male_sample <- sample(male, size = 29, replace = TRUE) #Taking sample of 29 values so that n<30 to satisfy our t test constraints
+female_sample <- sample(female, size = 29, replace = TRUE)
+
+```
+
+
+As we need to find out if the bwt of male cats and female cats are same or not, we'll use a two tailed t test
+
+Null hypothesis (H0) is as follows: Male and female cat samples have the same body weight, i.e difference of mean (mud) = 0
+
+Alternative hypothesis (H1) is as follows:  Male and female cat samples have unequal body weight, i.e difference of mean (mud) != 0
+
+
+#### Test for equal or unequal variance using F-test 
+
+Test for the variance of the body weight in male and female cats.
+
+#### code:
+
+```{r}
+ftest_unpaired = var.test(male$Bwt, female$Bwt, paired=FALSE)
+ftest_unpaired
+```
+
+**Interpretation of the result**
+
+Since the true ratio of variances is not equal to 1, this implies that the Body weight of male cats and body weight of female cats have unequal variances.
+
+
+#### Two sample unpaired t test with unequal variances
+
+```{r}
+ttest_unpaired = t.test(male$Bwt, female$Bwt,
+                        var.equal = FALSE,
+                        paired = FALSE)
+ttest_unpaired
+```
+
+**Intepretation of the results**
+
+
+Since p-value < alpha (0.05), we can reject the NULL hypothesis and adopt our alternative hypothesis that mud!=0, i.e., male and female cats do not have same body weights.
+
+
+
+
+
+### Perform Test of equal or given proportions 
+
+Using the “bacteria” data set, answer the question, “did the drug treatment have a significant effect of the presence of the bacteria compared with the placebo?”
+
+#### code:
+
+```{r}
+
+MASS::bacteria
+?bacteria
+View(bacteria)
+
+active <- subset(bacteria, subset=(bacteria$ap=="a")) # taking subset with the presence of the drug either in low or high dose, i.e. drug or drug+
+
+placebo <- subset(bacteria, subset=(bacteria$ap=="p"))
+
+active
+
+count_active <- nrow(active) # count of rows with the drug present
+count_active
+
+placebo
+
+count_placebo <- nrow(placebo) # count of rows with the drug absent
+count_placebo
+
+p_active <- sum(active$y == "n") #TRUE is interpreted as 1 and FALSE as 0, this returns the number of TRUE values in our vector, thereby giving the count of wherever the bacteria is absent in case of active
+p_active
+
+p_placebo <- sum(placebo$y == "n") #Returns count of rows wherever bacteria is absent in case of placebo
+p_placebo
+
+31/124 # proportion of children without bacteria while being treated with drug 
+12/96  # proportion of children without bacteria while being given placebo
+
+```
+
+Group active with drug: n = 124
+Group placebo without drug: n = 96
+
+The number of infections persisting in each group is as follow:
+
+Proportion of Group active without bacteria: n = 124, p= 31 patients without bacteria, p/n = 31/124=0.25
+Proportion of Group placebo without bacteria: n = 96, p= 12 patients without bacteria, p/n =12/96= 0.125
+
+As we need to find out if the drug treatment had a significant reduction in the presence of bacteria, we'll use a one-tailed, two sample t test for proportions.
+
+
+Null hypothesis (H0) is as follows: The drug treatment did not cause a significant reduction in the presence of bacteria in the infected patients, i.e. P(Active) = P(Placebo), where P(Active) represents the proportion of patients who lost the bacteria because of the drug and P(Placebo) represents the proportion of patients who lost the bacteria because of the placebo, i.e. without the drug.
+
+Alternative hypothesis (H1) is as follows: The drug treatment caused a significant reduction in the presence of bacteria in the infected patients, i.e. P(Active) > P(Placebo)
+
+#### one-tailed, two sample t test for proportions.
+
+```{r}
+?prop.test
+```
+
+
+```{r}
+tproportions = prop.test(x = c(p_active, p_placebo), n = c(count_active, count_placebo),
+                         alternative = "greater")
+tproportions
+```
+
+
+**Interpretation of the result**
+
+The p-value of the test is 0.01588, which is less than the significance level alpha = 0.05. We can conclude that the drug treatment had a significant effect of the presence of the bacteria compared with the placebo, i.e. it significantly reduced the presence of bacteria in children.
+
+
+
